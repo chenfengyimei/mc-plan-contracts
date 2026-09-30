@@ -2,6 +2,8 @@
 
 本仓库是公共 API、Schema、事件和 SDK 表面的唯一真相。
 
+任何写操作前必须使用 `$mc-plan-development`，确认本仓库是活动工作流的唯一主仓库或可写辅助仓库，并从工作区根目录运行协调预检。没有 Tracking ID、活动记录或通过的预检时不得编辑。
+
 变更前必须：
 
 1. 阅读 `docs/architecture.md`、`docs/compatibility.md` 和相关 OpenAPI/Schema。
@@ -10,4 +12,4 @@
 
 不得加入服务业务逻辑、Prisma 模型、真实生产域名、密钥或推测性字段。公共类型不得在服务仓库手写复制。
 
-提交前运行 `docs/validation.md` 中的校验，并更新兼容性矩阵或状态页。
+提交前运行 `docs/development-plan.md` 和 `docs/validation.md` 中的校验，并仅在实际兼容组合或里程碑变化时更新矩阵/状态页。

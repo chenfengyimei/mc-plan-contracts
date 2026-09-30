@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.mc-plan.example/community/license-snapshot.v1.json",
+  "title": "LicenseSnapshot",
+  "type": "object",
+  "required": ["license_id", "license_version", "attribution_required", "snapshot_hash"],
+  "properties": {
+    "license_id": { "type": "string", "minLength": 1 },
+    "license_version": { "type": "string", "minLength": 1 },
+    "attribution_required": { "type": "boolean" },
+    "attribution_text": { "type": ["string", "null"] },
+    "snapshot_hash": { "type": "string", "pattern": "^sha256:[a-f0-9]{64}$" }
+  },
+  "additionalProperties": false
+}

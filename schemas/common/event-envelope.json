@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.mc-plan.example/common/event-envelope.v1.json",
+  "title": "EventEnvelope",
+  "type": "object",
+  "required": ["event_id", "type", "occurred_at", "producer", "subject", "schema_version", "data"],
+  "properties": {
+    "event_id": { "type": "string", "minLength": 1 },
+    "type": { "type": "string", "pattern": "^[a-z][a-z0-9_.-]+\\.v[1-9][0-9]*$" },
+    "occurred_at": { "type": "string", "format": "date-time" },
+    "producer": { "type": "string", "minLength": 1 },
+    "subject": { "type": "string", "minLength": 1 },
+    "correlation_id": { "type": ["string", "null"] },
+    "schema_version": { "type": "integer", "minimum": 1 },
+    "data": { "type": "object" }
+  },
+  "additionalProperties": false
+}

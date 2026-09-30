@@ -1,0 +1,11 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.mc-plan.example/common/cursor-page.v1.json",
+  "title": "CursorPageMetadata",
+  "type": "object",
+  "required": ["next_cursor"],
+  "properties": {
+    "next_cursor": { "type": ["string", "null"] }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.mc-plan.example/core/entitlement.v1.json",
+  "title": "EntitlementBalance",
+  "type": "object",
+  "required": ["module", "policy_date", "timezone", "granted", "consumed", "remaining"],
+  "properties": {
+    "module": { "type": "string", "enum": ["skin"] },
+    "policy_date": { "type": "string", "format": "date" },
+    "timezone": { "type": "string", "const": "Asia/Shanghai" },
+    "granted": { "type": "integer", "minimum": 0 },
+    "consumed": { "type": "integer", "minimum": 0 },
+    "remaining": { "type": "integer", "minimum": 0 }
+  },
+  "additionalProperties": false
+}

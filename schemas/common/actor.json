@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.mc-plan.example/common/actor.v1.json",
+  "title": "PublicActor",
+  "type": "object",
+  "required": ["user_id", "display_name"],
+  "properties": {
+    "user_id": { "type": "string", "minLength": 1 },
+    "display_name": { "type": "string", "minLength": 1, "maxLength": 80 },
+    "avatar_url": { "type": ["string", "null"], "format": "uri" }
+  },
+  "additionalProperties": false
+}

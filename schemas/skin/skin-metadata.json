@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.mc-plan.example/skin/skin-metadata.v1.json",
+  "title": "SkinMetadata",
+  "type": "object",
+  "required": ["edition", "width", "height", "arm_model", "second_layer"],
+  "properties": {
+    "edition": { "type": "string", "const": "java" },
+    "width": { "type": "integer", "const": 64 },
+    "height": { "type": "integer", "const": 64 },
+    "arm_model": { "type": "string", "enum": ["steve", "alex"] },
+    "second_layer": { "type": "boolean" }
+  },
+  "additionalProperties": false
+}

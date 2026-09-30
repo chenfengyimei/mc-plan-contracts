@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.mc-plan.example/community/resource-version.v1.json",
+  "title": "ResourceVersion",
+  "type": "object",
+  "required": ["version_id", "resource_id", "version", "schema_version", "files", "license", "created_at"],
+  "properties": {
+    "version_id": { "type": "string", "minLength": 1 },
+    "resource_id": { "type": "string", "minLength": 1 },
+    "version": { "type": "string", "minLength": 1 },
+    "schema_version": { "type": "integer", "minimum": 1 },
+    "metadata": { "type": "object" },
+    "files": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "./resource-file.json" }
+    },
+    "license": { "$ref": "./license-snapshot.json" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "published_at": { "type": ["string", "null"], "format": "date-time" }
+  },
+  "additionalProperties": false
+}

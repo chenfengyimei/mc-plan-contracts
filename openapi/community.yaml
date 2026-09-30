@@ -1,0 +1,297 @@
+openapi: 3.1.0
+info:
+  title: MC Plan Community API
+  version: 0.1.0-draft
+  description: Public resource, upload, publication, and discovery skeleton. Social and moderation surfaces are added only after their product states are approved.
+  license:
+    name: Apache License 2.0
+    identifier: Apache-2.0
+servers:
+  - url: https://community-api.example.invalid
+tags:
+  - name: Uploads
+    description: Short-lived direct-upload sessions and file intake.
+  - name: Resources
+    description: Resource containers, immutable versions, publication, discovery, and unpublishing.
+security:
+  - userOAuth: []
+paths:
+  /v1/upload-sessions:
+    post:
+      tags: [Uploads]
+      operationId: createUploadSession
+      summary: Create a short-lived direct upload session
+      security:
+        - userOAuth: [upload:write]
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [purpose, media_type, size_bytes, sha256]
+              properties:
+                purpose:
+                  type: string
+                  enum: [resource_primary]
+                media_type:
+                  type: string
+                  const: image/png
+                size_bytes:
+                  type: integer
+                  minimum: 1
+                sha256:
+                  type: string
+                  pattern: "^[a-f0-9]{64}$"
+              additionalProperties: false
+      responses:
+        "201":
+          description: Upload session
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UploadSession"
+        "400":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /v1/resources:
+    get:
+      tags: [Resources]
+      operationId: listResources
+      summary: List published resources
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - name: type
+          in: query
+          schema:
+            type: string
+            enum: [skin]
+      responses:
+        "200":
+          description: Published resource page
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items, next_cursor]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: ../schemas/community/resource.json
+                  next_cursor:
+                    type: [string, "null"]
+                additionalProperties: false
+        "400":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+    post:
+      tags: [Resources]
+      operationId: createResource
+      summary: Create an owned resource container
+      security:
+        - userOAuth: [resource:write]
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [type, title, description]
+              properties:
+                type:
+                  type: string
+                  enum: [skin]
+                title:
+                  type: string
+                  minLength: 1
+                  maxLength: 120
+                description:
+                  type: string
+                  maxLength: 4000
+              additionalProperties: false
+      responses:
+        "201":
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/community/resource.json
+        "400":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /v1/resources/{resourceId}:
+    parameters:
+      - $ref: "#/components/parameters/ResourceId"
+    get:
+      tags: [Resources]
+      operationId: getResource
+      summary: Get a published resource or an owned non-public resource
+      security:
+        - {}
+        - userOAuth: [resource:read]
+      responses:
+        "200":
+          description: Resource
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [resource, versions]
+                properties:
+                  resource:
+                    $ref: ../schemas/community/resource.json
+                  versions:
+                    type: array
+                    items:
+                      $ref: ../schemas/community/resource-version.json
+                additionalProperties: false
+        "404":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+    delete:
+      tags: [Resources]
+      operationId: unpublishResource
+      summary: Immediately unpublish an owned resource and schedule file cleanup
+      security:
+        - userOAuth: [resource:write]
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "204":
+          description: Resource is no longer public
+        "404":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /v1/resources/{resourceId}/versions:
+    parameters:
+      - $ref: "#/components/parameters/ResourceId"
+    post:
+      tags: [Resources]
+      operationId: createResourceVersion
+      summary: Attach a validated upload as an immutable resource version
+      security:
+        - userOAuth: [resource:write]
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [upload_id, version, schema_version, metadata, license_id]
+              properties:
+                upload_id:
+                  type: string
+                  minLength: 1
+                version:
+                  type: string
+                  minLength: 1
+                schema_version:
+                  type: integer
+                  const: 1
+                metadata:
+                  $ref: ../schemas/skin/skin-metadata.json
+                license_id:
+                  type: string
+                  minLength: 1
+              additionalProperties: false
+      responses:
+        "202":
+          description: Version accepted for validation and moderation
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/community/resource-version.json
+        "400":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /v1/resources/{resourceId}/publish:
+    parameters:
+      - $ref: "#/components/parameters/ResourceId"
+    post:
+      tags: [Resources]
+      operationId: publishResource
+      summary: Request publication after the current version passes validation
+      security:
+        - userOAuth: [resource:write]
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      responses:
+        "202":
+          description: Publication request accepted
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/community/resource.json
+        "409":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+components:
+  parameters:
+    ResourceId:
+      name: resourceId
+      in: path
+      required: true
+      schema:
+        type: string
+        minLength: 1
+    Cursor:
+      name: cursor
+      in: query
+      schema:
+        type: string
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema:
+        type: string
+        minLength: 8
+        maxLength: 200
+  schemas:
+    UploadSession:
+      type: object
+      required: [upload_id, upload_url, expires_at]
+      properties:
+        upload_id:
+          type: string
+          minLength: 1
+        upload_url:
+          type: string
+          format: uri
+        expires_at:
+          type: string
+          format: date-time
+      additionalProperties: false
+  responses:
+    Problem:
+      description: Error response
+      content:
+        application/problem+json:
+          schema:
+            $ref: ../schemas/common/problem.json
+  securitySchemes:
+    userOAuth:
+      type: oauth2
+      flows:
+        authorizationCode:
+          authorizationUrl: https://identity.example.invalid/authorize
+          tokenUrl: https://identity.example.invalid/token
+          scopes:
+            resource:read: Read owned non-public resources
+            resource:write: Create, version, publish, and unpublish owned resources
+            upload:write: Create resource upload sessions

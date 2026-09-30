@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.mc-plan.example/events/credit.changed.v1.json",
+  "title": "credit.changed.v1",
+  "allOf": [
+    { "$ref": "../schemas/common/event-envelope.json" },
+    {
+      "type": "object",
+      "properties": {
+        "type": { "const": "credit.changed.v1" },
+        "data": { "$ref": "../schemas/core/credit-ledger-entry.json" }
+      }
+    }
+  ]
+}

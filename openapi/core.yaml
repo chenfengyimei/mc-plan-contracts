@@ -1,0 +1,193 @@
+openapi: 3.1.0
+info:
+  title: MC Plan Core API
+  version: 0.1.0-draft
+  description: Public business identity, profile, entitlement, and credit surface. Keycloak remains the credential and OIDC provider.
+  license:
+    name: Apache License 2.0
+    identifier: Apache-2.0
+servers:
+  - url: https://core-api.example.invalid
+tags:
+  - name: Profile
+    description: MC Plan business user and public creator profile operations.
+  - name: Entitlements
+    description: Daily and campaign-based module entitlement operations.
+  - name: Credits
+    description: Audited global credit ledger consumption operations.
+security:
+  - userOAuth: []
+paths:
+  /v1/me:
+    get:
+      tags: [Profile]
+      operationId: getCurrentUser
+      summary: Return the current MC Plan public profile
+      security:
+        - userOAuth: [profile:read]
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/common/actor.json
+        "401":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /v1/users/{userId}:
+    parameters:
+      - $ref: "#/components/parameters/UserId"
+    get:
+      tags: [Profile]
+      operationId: getPublicUser
+      summary: Return a public creator profile
+      security: []
+      responses:
+        "200":
+          description: Public user
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/common/actor.json
+        "404":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /v1/entitlements:
+    get:
+      tags: [Entitlements]
+      operationId: listCurrentEntitlements
+      summary: Return the current user's active daily entitlements
+      security:
+        - userOAuth: [credits:read]
+      responses:
+        "200":
+          description: Active entitlements
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items:
+                    type: array
+                    items:
+                      $ref: ../schemas/core/entitlement.json
+                additionalProperties: false
+        "401":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /v1/credits/consume:
+    post:
+      tags: [Credits]
+      operationId: consumeCredits
+      summary: Consume credits or an entitlement for an authorized module operation
+      security:
+        - serviceOAuth: [credits:consume]
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [user_id, module, operation, units, reference_id]
+              properties:
+                user_id:
+                  type: string
+                  minLength: 1
+                module:
+                  type: string
+                  enum: [skin]
+                operation:
+                  type: string
+                  enum: [creation_session]
+                units:
+                  type: integer
+                  minimum: 1
+                reference_id:
+                  type: string
+                  minLength: 1
+              additionalProperties: false
+      responses:
+        "200":
+          description: Existing idempotent consumption result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConsumptionResult"
+        "201":
+          description: Credits or entitlement consumed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConsumptionResult"
+        "409":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+components:
+  parameters:
+    UserId:
+      name: userId
+      in: path
+      required: true
+      schema:
+        type: string
+        minLength: 1
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema:
+        type: string
+        minLength: 8
+        maxLength: 200
+  schemas:
+    ConsumptionResult:
+      type: object
+      required: [consumption_id, source, units, remaining, created_at]
+      properties:
+        consumption_id:
+          type: string
+        source:
+          type: string
+          enum: [daily_entitlement, credits]
+        units:
+          type: integer
+          minimum: 1
+        remaining:
+          type: integer
+          minimum: 0
+        created_at:
+          type: string
+          format: date-time
+      additionalProperties: false
+  responses:
+    Problem:
+      description: Error response
+      content:
+        application/problem+json:
+          schema:
+            $ref: ../schemas/common/problem.json
+  securitySchemes:
+    userOAuth:
+      type: oauth2
+      flows:
+        authorizationCode:
+          authorizationUrl: https://identity.example.invalid/authorize
+          tokenUrl: https://identity.example.invalid/token
+          scopes:
+            profile:read: Read the current user's MC Plan profile
+            credits:read: Read the current user's entitlements and credit balance
+    serviceOAuth:
+      type: oauth2
+      flows:
+        clientCredentials:
+          tokenUrl: https://identity.example.invalid/token
+          scopes:
+            credits:consume: Consume credits for an authorized module operation

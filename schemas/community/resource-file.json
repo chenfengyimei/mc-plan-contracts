@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.mc-plan.example/community/resource-file.v1.json",
+  "title": "ResourceFile",
+  "type": "object",
+  "required": ["file_id", "role", "media_type", "size_bytes", "sha256"],
+  "properties": {
+    "file_id": { "type": "string", "minLength": 1 },
+    "role": { "type": "string", "enum": ["primary", "preview", "attachment"] },
+    "media_type": { "type": "string", "minLength": 1 },
+    "size_bytes": { "type": "integer", "minimum": 1 },
+    "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "download_url": { "type": ["string", "null"], "format": "uri" }
+  },
+  "additionalProperties": false
+}

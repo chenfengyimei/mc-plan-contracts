@@ -1,0 +1,235 @@
+openapi: 3.1.0
+info:
+  title: MC Plan Skin API
+  version: 0.1.0-draft
+  description: Provider-neutral conversation, render, finalization, and job status skeleton for Official and Standalone deployments.
+  license:
+    name: Apache License 2.0
+    identifier: Apache-2.0
+servers:
+  - url: https://skin-api.example.invalid
+tags:
+  - name: Conversations
+    description: Skin creation sessions, render attempts, and finalization.
+  - name: Jobs
+    description: Asynchronous render and finalization job status.
+security:
+  - userOAuth: []
+paths:
+  /v1/conversations:
+    post:
+      tags: [Conversations]
+      operationId: createConversation
+      summary: Start a skin creation conversation and reserve one creation session
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [initial_message]
+              properties:
+                initial_message:
+                  type: string
+                  minLength: 1
+                  maxLength: 4000
+              additionalProperties: false
+      responses:
+        "201":
+          description: Conversation created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Conversation"
+        "400":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /v1/conversations/{conversationId}/renders:
+    parameters:
+      - $ref: "#/components/parameters/ConversationId"
+    post:
+      tags: [Conversations]
+      operationId: createRender
+      summary: Request the next candidate render within the session attempt limit
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [message]
+              properties:
+                message:
+                  type: string
+                  minLength: 1
+                  maxLength: 4000
+                preferred_arm_model:
+                  type: string
+                  enum: [steve, alex]
+              additionalProperties: false
+      responses:
+        "202":
+          description: Render job queued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobAccepted"
+        "409":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /v1/conversations/{conversationId}/finalize:
+    parameters:
+      - $ref: "#/components/parameters/ConversationId"
+    post:
+      tags: [Conversations]
+      operationId: finalizeSkin
+      summary: Confirm a candidate as the final standards-compliant skin
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [candidate_id, title, description]
+              properties:
+                candidate_id:
+                  type: string
+                  minLength: 1
+                title:
+                  type: string
+                  minLength: 1
+                  maxLength: 120
+                description:
+                  type: string
+                  maxLength: 4000
+              additionalProperties: false
+      responses:
+        "202":
+          description: Final validation and mode-specific publication job queued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobAccepted"
+        "409":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /v1/jobs/{jobId}:
+    parameters:
+      - name: jobId
+        in: path
+        required: true
+        schema:
+          type: string
+          minLength: 1
+    get:
+      tags: [Jobs]
+      operationId: getJob
+      summary: Return render or finalization job status
+      responses:
+        "200":
+          description: Job state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Job"
+        "404":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+components:
+  parameters:
+    ConversationId:
+      name: conversationId
+      in: path
+      required: true
+      schema:
+        type: string
+        minLength: 1
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema:
+        type: string
+        minLength: 8
+        maxLength: 200
+  schemas:
+    Conversation:
+      type: object
+      required: [conversation_id, status, attempts_used, attempts_limit, expires_at]
+      properties:
+        conversation_id:
+          type: string
+        status:
+          type: string
+          enum: [active, finalizing, completed, expired, cancelled]
+        attempts_used:
+          type: integer
+          minimum: 0
+        attempts_limit:
+          type: integer
+          minimum: 1
+        expires_at:
+          type: string
+          format: date-time
+      additionalProperties: false
+    JobAccepted:
+      type: object
+      required: [job_id, status]
+      properties:
+        job_id:
+          type: string
+        status:
+          type: string
+          const: queued
+      additionalProperties: false
+    Job:
+      type: object
+      required: [job_id, kind, status, created_at, updated_at]
+      properties:
+        job_id:
+          type: string
+        kind:
+          type: string
+          enum: [render, finalize]
+        status:
+          type: string
+          enum: [queued, running, succeeded, failed, cancelled]
+        candidate_id:
+          type: [string, "null"]
+        resource_id:
+          type: [string, "null"]
+        error_code:
+          type: [string, "null"]
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      additionalProperties: false
+  responses:
+    Problem:
+      description: Error response
+      content:
+        application/problem+json:
+          schema:
+            $ref: ../schemas/common/problem.json
+  securitySchemes:
+    userOAuth:
+      type: oauth2
+      flows:
+        authorizationCode:
+          authorizationUrl: https://identity.example.invalid/authorize
+          tokenUrl: https://identity.example.invalid/token
+          scopes:
+            skin:write: Create and manage the current user's skin conversations

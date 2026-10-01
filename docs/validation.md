@@ -14,9 +14,9 @@
 ```powershell
 python -m pip install -r requirements-validation.txt
 python scripts/validate_contracts.py
-pnpm dlx @redocly/cli lint "openapi/*.yaml"
+pnpm --package=@redocly/cli dlx redocly lint "openapi/*.yaml"
 ```
 
-`validate_contracts.py` 只读取文件，不生成产物；它校验 JSON Schema 元语法、唯一 `$id`、本地引用、事件命名、OpenAPI 版本路径、operationId 和显式 4xx 响应。Redocly 执行完整 OpenAPI 推荐规则检查。
+`validate_contracts.py` 只读取文件，不生成产物；它校验 JSON Schema 元语法、唯一 `$id`、本地引用、事件命名、OpenAPI 版本路径、operationId 和显式 4xx 响应。Redocly 执行完整 OpenAPI 推荐规则检查。命令显式选择 `redocly` binary，因为当前 `@redocly/cli` 同时发布 `redocly` 与 `openapi`，直接 `pnpm dlx @redocly/cli` 无法可靠选择入口。
 
 引入 Node 工具链后在 CI 使用 Redocly 或 Spectral 校验 OpenAPI、AJV 校验 JSON Schema，并对 SDK 生成结果执行差异检查。当前仓库不为验证工具提前生成业务工程。

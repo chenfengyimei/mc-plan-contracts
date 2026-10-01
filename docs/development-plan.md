@@ -23,7 +23,7 @@
 
 ```powershell
 python scripts/validate_contracts.py
-pnpm dlx @redocly/cli lint "openapi/*.yaml"
+pnpm --package=@redocly/cli dlx redocly lint "openapi/*.yaml"
 pwsh -File ..\mc-plan-foundation\scripts\validate-coordination.ps1 `
   -TrackingId <ID> -Phase Continue
 ```

@@ -10,8 +10,8 @@ F0 状态：已完成（本地契约骨架；尚未发布远程）
 
 已完成：仓库职责、兼容规则、API 目录、通用 Schema、Core/Community/Skin OpenAPI 骨架和两个跨服务事件骨架。
 
-尚未实现：服务端、SDK 代码、社交与审核完整接口、正式域名、发布流水线。
+尚未实现：其余 Core 业务接口、SDK 代码、社交与审核完整接口、正式域名、发布流水线。
 
-当前进展：`GET /v1/me`、`profile:read`、PublicActor 以及认证/业务账号拒绝语义已锁定为首个 Core 预发布切片；生产者实现与真实 Keycloak 集成由 `MCP-F1-CORE-002` 验证。
+当前进展：`GET /v1/me`、`profile:read`、PublicActor 以及认证/业务账号拒绝语义已锁定为首个 Core 预发布切片；`MCP-F1-CORE-002` 已完成 Core 生产者契约测试和真实 Keycloak 集成验证。
 
-下一门槛：Core 生产者通过契约测试和真实 Keycloak 集成后更新兼容矩阵；SDK 与消费者另开后续工作流。
+下一门槛：SDK 与消费者必须另开后续工作流，并继续遵守契约 → SDK → 消费者顺序；尚未锁定的 Core F1 能力需先补契约。

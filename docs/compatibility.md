@@ -15,5 +15,12 @@
 | Contract | 状态 | Core | Community | Skin | TypeScript SDK |
 |---|---|---|---|---|---|
 | `0.1.0-draft` | 文档骨架 | 未实现 | 未实现 | 未实现 | 未生成 |
+| Core `0.1.0-alpha.1` | 预发布；`GET /v1/me` 已锁定 | `MCP-F1-CORE-002` 实现中 | 不适用 | 不适用 | 未生成 |
+
+## Core 0.1.0-alpha.1 兼容分类
+
+本版本是从未发布、未实现的 `0.1.0-draft` 锁定首个生产者切片，分类为**预发布兼容收敛**：保留既有 `GET /v1/me`、`profile:read` 和 `PublicActor` 字段，仅补充明确的 `401 AUTHENTICATION_REQUIRED` 与 `403 ACCOUNT_UNAVAILABLE` 语义，并保证 `403` 不泄露具体业务账号状态。尚未锁定的 Core 路径仍是后续 F1 实现目标，不据此宣称生产者已经支持。
+
+发布顺序为 Contracts `0.1.0-alpha.1` → Core 生产者与契约测试 → Ops Keycloak/Core 集成 → 后续 TypeScript SDK 与消费者工作流。回退时生产者可回到尚无公共业务接口的 Core 第一工程切片；不得保留一个与本契约字段不一致的 `/v1/me`。
 
 矩阵只记录已验证组合，不把“计划支持”写成已支持。

@@ -12,6 +12,7 @@ from jsonschema.validators import validator_for
 
 
 ROOT = Path(__file__).resolve().parents[1]
+HTTP_METHODS = {"get", "post", "put", "patch", "delete"}
 
 
 def walk_refs(value: Any) -> Iterable[str]:
@@ -62,6 +63,97 @@ def validate_json_schemas() -> tuple[int, set[str]]:
     return len(schema_files) + len(event_files), schema_ids
 
 
+def iter_operations(document: dict[str, Any]) -> Iterable[tuple[str, str, dict[str, Any]]]:
+    for path, path_item in document.get("paths", {}).items():
+        for method, operation in path_item.items():
+            if method.lower() in HTTP_METHODS:
+                yield path, method.lower(), operation
+
+
+def validate_security_scopes(source: Path, document: dict[str, Any]) -> None:
+    schemes = document.get("components", {}).get("securitySchemes", {})
+    for path, method, operation in iter_operations(document):
+        requirements = operation.get("security", document.get("security", []))
+        for requirement in requirements:
+            for scheme_name, requested_scopes in requirement.items():
+                scheme = schemes.get(scheme_name)
+                if not scheme:
+                    raise ValueError(
+                        f"{source.name} {method.upper()} {path} uses unknown security scheme {scheme_name}"
+                    )
+                declared_scopes: set[str] = set()
+                for flow in scheme.get("flows", {}).values():
+                    declared_scopes.update(flow.get("scopes", {}).keys())
+                unknown = set(requested_scopes) - declared_scopes
+                if unknown:
+                    raise ValueError(
+                        f"{source.name} {method.upper()} {path} uses undeclared scopes {sorted(unknown)}"
+                    )
+
+
+def validate_core_identity_prerelease(document: dict[str, Any]) -> None:
+    version = document.get("info", {}).get("version")
+    if version != "0.1.0-alpha.1":
+        raise ValueError("core.yaml must lock the identity slice as 0.1.0-alpha.1")
+
+    operation = document.get("paths", {}).get("/v1/me", {}).get("get", {})
+    if operation.get("operationId") != "getCurrentUser":
+        raise ValueError("core.yaml GET /v1/me must keep operationId getCurrentUser")
+    if operation.get("security") != [{"userOAuth": ["profile:read"]}]:
+        raise ValueError("core.yaml GET /v1/me must require only profile:read")
+    if operation.get("x-mc-plan-stability") != "locked":
+        raise ValueError("core.yaml GET /v1/me must be marked locked")
+
+    responses = operation.get("responses", {})
+    expected_refs = {
+        "200": "../schemas/common/actor.json",
+        "401": "#/components/responses/AuthenticationRequired",
+        "403": "#/components/responses/AccountUnavailable",
+    }
+    actual_refs = {
+        "200": responses.get("200", {})
+        .get("content", {})
+        .get("application/json", {})
+        .get("schema", {})
+        .get("$ref"),
+        "401": responses.get("401", {}).get("$ref"),
+        "403": responses.get("403", {}).get("$ref"),
+    }
+    if actual_refs != expected_refs:
+        raise ValueError(f"core.yaml GET /v1/me response refs changed: {actual_refs}")
+
+    problem = json.loads((ROOT / "schemas/common/problem.json").read_text(encoding="utf-8"))
+    problem_validator = validator_for(problem)(problem)
+    components = document.get("components", {}).get("responses", {})
+    expected_errors = {
+        "AuthenticationRequired": (401, "AUTHENTICATION_REQUIRED"),
+        "AccountUnavailable": (403, "ACCOUNT_UNAVAILABLE"),
+    }
+    for response_name, (status, code) in expected_errors.items():
+        example = (
+            components.get(response_name, {})
+            .get("content", {})
+            .get("application/problem+json", {})
+            .get("example")
+        )
+        errors = sorted(problem_validator.iter_errors(example), key=lambda error: list(error.path))
+        if errors:
+            raise ValueError(f"core.yaml {response_name} example is not ProblemDetails: {errors[0].message}")
+        if example.get("status") != status or example.get("code") != code:
+            raise ValueError(f"core.yaml {response_name} must use status {status} and code {code}")
+
+    actor = json.loads((ROOT / "schemas/common/actor.json").read_text(encoding="utf-8"))
+    public_fields = set(actor.get("properties", {}))
+    if public_fields != {"user_id", "display_name", "avatar_url"}:
+        raise ValueError(f"PublicActor exposes unexpected fields: {sorted(public_fields)}")
+    if actor.get("additionalProperties") is not False:
+        raise ValueError("PublicActor must reject identity-provider or business-state fields")
+
+    compatibility = (ROOT / "docs/compatibility.md").read_text(encoding="utf-8")
+    if "Core `0.1.0-alpha.1`" not in compatibility or "预发布兼容收敛" not in compatibility:
+        raise ValueError("docs/compatibility.md must classify Core 0.1.0-alpha.1")
+
+
 def validate_openapi() -> tuple[int, set[str]]:
     sources = sorted((ROOT / "openapi").glob("*.yaml"))
     operation_ids: set[str] = set()
@@ -78,7 +170,7 @@ def validate_openapi() -> tuple[int, set[str]]:
             if not path.startswith("/v1/"):
                 raise ValueError(f"{source.name} path is not versioned: {path}")
             for method, operation in path_item.items():
-                if method.lower() not in {"get", "post", "put", "patch", "delete"}:
+                if method.lower() not in HTTP_METHODS:
                     continue
                 operation_id = operation.get("operationId")
                 if not operation_id:
@@ -89,6 +181,10 @@ def validate_openapi() -> tuple[int, set[str]]:
                 responses = operation.get("responses", {})
                 if not any(str(code).startswith("4") for code in responses):
                     raise ValueError(f"{source.name} {operation_id} lacks an explicit 4xx response")
+
+        validate_security_scopes(source, document)
+        if source.name == "core.yaml":
+            validate_core_identity_prerelease(document)
 
     return len(sources), operation_ids
 

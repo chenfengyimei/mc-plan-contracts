@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: MC Plan Core API
-  version: 0.1.0-draft
+  version: 0.1.0-alpha.1
   description: Public business identity, profile, entitlement, and credit surface. Keycloak remains the credential and OIDC provider.
   license:
     name: Apache License 2.0
@@ -23,6 +23,11 @@ paths:
       tags: [Profile]
       operationId: getCurrentUser
       summary: Return the current MC Plan public profile
+      description: >-
+        Resolves the verified OIDC identity to a stable MC Plan user and returns
+        only its public actor fields. Identity-provider claims and business
+        account security state are never exposed.
+      x-mc-plan-stability: locked
       security:
         - userOAuth: [profile:read]
       responses:
@@ -33,7 +38,9 @@ paths:
               schema:
                 $ref: ../schemas/common/actor.json
         "401":
-          $ref: "#/components/responses/Problem"
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/AccountUnavailable"
         default:
           $ref: "#/components/responses/Problem"
   /v1/users/{userId}:
@@ -168,6 +175,32 @@ components:
           format: date-time
       additionalProperties: false
   responses:
+    AuthenticationRequired:
+      description: >-
+        Authentication is missing or the access token fails signature, issuer,
+        audience, expiry, or verified-email requirements.
+      content:
+        application/problem+json:
+          schema:
+            $ref: ../schemas/common/problem.json
+          example:
+            type: /problems/authentication-required
+            title: Authentication required
+            status: 401
+            code: AUTHENTICATION_REQUIRED
+            trace_id: 01HZZZZZZZZZZZZZZZZZZZZZZZ
+    AccountUnavailable:
+      description: The authenticated MC Plan business account cannot access this operation.
+      content:
+        application/problem+json:
+          schema:
+            $ref: ../schemas/common/problem.json
+          example:
+            type: /problems/account-unavailable
+            title: Account unavailable
+            status: 403
+            code: ACCOUNT_UNAVAILABLE
+            trace_id: 01HZZZZZZZZZZZZZZZZZZZZZZZ
     Problem:
       description: Error response
       content:

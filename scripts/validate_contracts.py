@@ -108,7 +108,7 @@ def validate_core_identity_prerelease(document: dict[str, Any]) -> None:
     expected_refs = {
         "200": "../schemas/common/actor.json",
         "401": "#/components/responses/AuthenticationRequired",
-        "403": "#/components/responses/AccountUnavailable",
+        "403": "#/components/responses/AccessForbidden",
     }
     actual_refs = {
         "200": responses.get("200", {})
@@ -125,17 +125,18 @@ def validate_core_identity_prerelease(document: dict[str, Any]) -> None:
     problem = json.loads((ROOT / "schemas/common/problem.json").read_text(encoding="utf-8"))
     problem_validator = validator_for(problem)(problem)
     components = document.get("components", {}).get("responses", {})
-    expected_errors = {
-        "AuthenticationRequired": (401, "AUTHENTICATION_REQUIRED"),
-        "AccountUnavailable": (403, "ACCOUNT_UNAVAILABLE"),
-    }
-    for response_name, (status, code) in expected_errors.items():
-        example = (
-            components.get(response_name, {})
-            .get("content", {})
-            .get("application/problem+json", {})
-            .get("example")
+    expected_errors = [
+        ("AuthenticationRequired", "example", 401, "AUTHENTICATION_REQUIRED"),
+        ("AccessForbidden", "examples.insufficientScope.value", 403, "INSUFFICIENT_SCOPE"),
+        ("AccessForbidden", "examples.accountUnavailable.value", 403, "ACCOUNT_UNAVAILABLE"),
+    ]
+    for response_name, example_path, status, code in expected_errors:
+        media_type = components.get(response_name, {}).get("content", {}).get(
+            "application/problem+json", {}
         )
+        example: Any = media_type
+        for segment in example_path.split("."):
+            example = example.get(segment) if isinstance(example, dict) else None
         errors = sorted(problem_validator.iter_errors(example), key=lambda error: list(error.path))
         if errors:
             raise ValueError(f"core.yaml {response_name} example is not ProblemDetails: {errors[0].message}")

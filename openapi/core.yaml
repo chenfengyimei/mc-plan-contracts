@@ -40,7 +40,7 @@ paths:
         "401":
           $ref: "#/components/responses/AuthenticationRequired"
         "403":
-          $ref: "#/components/responses/AccountUnavailable"
+          $ref: "#/components/responses/AccessForbidden"
         default:
           $ref: "#/components/responses/Problem"
   /v1/users/{userId}:
@@ -189,18 +189,29 @@ components:
             status: 401
             code: AUTHENTICATION_REQUIRED
             trace_id: 01HZZZZZZZZZZZZZZZZZZZZZZZ
-    AccountUnavailable:
-      description: The authenticated MC Plan business account cannot access this operation.
+    AccessForbidden:
+      description: >-
+        The token lacks the required scope or the authenticated MC Plan business
+        account cannot access this operation. Account state is not disclosed.
       content:
         application/problem+json:
           schema:
             $ref: ../schemas/common/problem.json
-          example:
-            type: /problems/account-unavailable
-            title: Account unavailable
-            status: 403
-            code: ACCOUNT_UNAVAILABLE
-            trace_id: 01HZZZZZZZZZZZZZZZZZZZZZZZ
+          examples:
+            insufficientScope:
+              value:
+                type: /problems/insufficient-scope
+                title: Insufficient scope
+                status: 403
+                code: INSUFFICIENT_SCOPE
+                trace_id: 01HZZZZZZZZZZZZZZZZZZZZZZZ
+            accountUnavailable:
+              value:
+                type: /problems/account-unavailable
+                title: Account unavailable
+                status: 403
+                code: ACCOUNT_UNAVAILABLE
+                trace_id: 01HZZZZZZZZZZZZZZZZZZZZZZZ
     Problem:
       description: Error response
       content:

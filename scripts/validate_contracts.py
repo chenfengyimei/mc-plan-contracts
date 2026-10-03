@@ -235,6 +235,42 @@ def validate_core_prerelease(document: dict[str, Any]) -> None:
     if pat.get("additionalProperties") is not False:
         raise ValueError("PersonalAccessToken metadata must never expose plaintext or hash fields")
 
+    pat_created = json.loads(
+        (ROOT / "schemas/core/personal-access-token-created.json").read_text(encoding="utf-8")
+    )
+    if set(pat_created.get("properties", {})) != {
+        "token_id",
+        "token",
+        "token_prefix",
+        "scopes",
+        "status",
+        "expires_at",
+        "created_at",
+    }:
+        raise ValueError(
+            "PersonalAccessTokenCreated must expose exactly the once-only token plus metadata fields"
+        )
+    if pat_created.get("additionalProperties") is not False:
+        raise ValueError("PersonalAccessTokenCreated must reject unexpected fields")
+
+    app_created = json.loads(
+        (ROOT / "schemas/core/developer-app-created.json").read_text(encoding="utf-8")
+    )
+    if set(app_created.get("properties", {})) != {
+        "app_id",
+        "name",
+        "client_type",
+        "redirect_uris",
+        "approved_scopes",
+        "status",
+        "client_secret",
+        "created_at",
+        "updated_at",
+    }:
+        raise ValueError("DeveloperAppCreated must expose the app fields plus the once-only secret")
+    if app_created.get("additionalProperties") is not False:
+        raise ValueError("DeveloperAppCreated must reject unexpected fields")
+
     create_schema = (
         document.get("components", {})
         .get("schemas", {})

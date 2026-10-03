@@ -99,7 +99,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/DeveloperAppCreated"
+                $ref: ../schemas/core/developer-app-created.json
         "400":
           $ref: "#/components/responses/ValidationFailed"
         "401":
@@ -250,7 +250,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/PersonalAccessTokenCreated"
+                $ref: ../schemas/core/personal-access-token-created.json
         "400":
           $ref: "#/components/responses/ValidationFailed"
         "401":
@@ -474,44 +474,6 @@ components:
             type: string
             minLength: 1
       additionalProperties: false
-    DeveloperAppCreated:
-      type: object
-      required:
-        [app_id, name, client_type, redirect_uris, approved_scopes, status, client_secret, created_at, updated_at]
-      properties:
-        app_id:
-          type: string
-        name:
-          type: string
-        client_type:
-          type: string
-          enum: [public, confidential]
-        redirect_uris:
-          type: array
-          minItems: 1
-          items:
-            type: string
-            format: uri
-        approved_scopes:
-          type: array
-          uniqueItems: true
-          items:
-            type: string
-        status:
-          type: string
-          enum: [active, revoked]
-        client_secret:
-          type: [string, "null"]
-          description: >-
-            Generated secret for confidential clients, returned exactly once;
-            null for public clients. Only a keyed hash is stored.
-        created_at:
-          type: string
-          format: date-time
-        updated_at:
-          type: string
-          format: date-time
-      additionalProperties: false
     ApproveDeveloperAppScopesRequest:
       type: object
       required: [approved_scopes]
@@ -547,36 +509,6 @@ components:
         developer_app_id:
           type: [string, "null"]
           description: Optional owning developer application for grouped revocation.
-      additionalProperties: false
-    PersonalAccessTokenCreated:
-      type: object
-      required: [token_id, token, token_prefix, scopes, status, expires_at, created_at]
-      properties:
-        token_id:
-          type: string
-        token:
-          type: string
-          minLength: 1
-          description: Plaintext personal access token, returned exactly once and never stored.
-        token_prefix:
-          type: string
-          minLength: 1
-          maxLength: 16
-        scopes:
-          type: array
-          minItems: 1
-          uniqueItems: true
-          items:
-            type: string
-        status:
-          type: string
-          enum: [active, expired, revoked]
-        expires_at:
-          type: string
-          format: date-time
-        created_at:
-          type: string
-          format: date-time
       additionalProperties: false
   responses:
     AuthenticationRequired:

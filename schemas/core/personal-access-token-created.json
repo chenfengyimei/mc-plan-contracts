@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.mc-plan.example/core/personal-access-token-created.v1.json",
+  "title": "PersonalAccessTokenCreated",
+  "description": "Create response for a personal access token. The plaintext token value is returned exactly once and is never stored.",
+  "type": "object",
+  "required": ["token_id", "token", "token_prefix", "scopes", "status", "expires_at", "created_at"],
+  "properties": {
+    "token_id": { "type": "string", "minLength": 1 },
+    "token": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "token_prefix": { "type": "string", "minLength": 1, "maxLength": 16 },
+    "scopes": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "status": { "type": "string", "enum": ["active", "expired", "revoked"] },
+    "expires_at": { "type": "string", "format": "date-time" },
+    "created_at": { "type": "string", "format": "date-time" }
+  },
+  "additionalProperties": false
+}

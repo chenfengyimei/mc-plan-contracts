@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.mc-plan.example/core/developer-app.v1.json",
+  "title": "DeveloperApp",
+  "description": "A user-registered OAuth/OIDC client application. Client secrets are returned only by the create response and are never stored in plaintext.",
+  "type": "object",
+  "required": ["app_id", "name", "client_type", "redirect_uris", "approved_scopes", "status", "created_at", "updated_at"],
+  "properties": {
+    "app_id": { "type": "string", "minLength": 1 },
+    "name": { "type": "string", "minLength": 1, "maxLength": 80 },
+    "client_type": { "type": "string", "enum": ["public", "confidential"] },
+    "redirect_uris": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 8,
+      "items": { "type": "string", "format": "uri", "minLength": 1, "maxLength": 2048 }
+    },
+    "approved_scopes": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "status": { "type": "string", "enum": ["active", "revoked"] },
+    "created_at": { "type": "string", "format": "date-time" },
+    "updated_at": { "type": "string", "format": "date-time" }
+  },
+  "additionalProperties": false
+}

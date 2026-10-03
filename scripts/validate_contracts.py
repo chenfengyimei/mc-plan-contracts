@@ -72,6 +72,10 @@ def iter_operations(document: dict[str, Any]) -> Iterable[tuple[str, str, dict[s
 
 def validate_security_scopes(source: Path, document: dict[str, Any]) -> None:
     schemes = document.get("components", {}).get("securitySchemes", {})
+    catalog_scopes: set[str] = set()
+    for scheme in schemes.values():
+        for flow in scheme.get("flows", {}).values():
+            catalog_scopes.update(flow.get("scopes", {}).keys())
     for path, method, operation in iter_operations(document):
         requirements = operation.get("security", document.get("security", []))
         for requirement in requirements:
@@ -81,26 +85,75 @@ def validate_security_scopes(source: Path, document: dict[str, Any]) -> None:
                     raise ValueError(
                         f"{source.name} {method.upper()} {path} uses unknown security scheme {scheme_name}"
                     )
-                declared_scopes: set[str] = set()
-                for flow in scheme.get("flows", {}).values():
-                    declared_scopes.update(flow.get("scopes", {}).keys())
-                unknown = set(requested_scopes) - declared_scopes
+                if scheme.get("type") == "oauth2":
+                    declared_scopes: set[str] = set()
+                    for flow in scheme.get("flows", {}).values():
+                        declared_scopes.update(flow.get("scopes", {}).keys())
+                    unknown = set(requested_scopes) - declared_scopes
+                else:
+                    unknown = set(requested_scopes) - catalog_scopes
                 if unknown:
                     raise ValueError(
                         f"{source.name} {method.upper()} {path} uses undeclared scopes {sorted(unknown)}"
                     )
 
 
-def validate_core_identity_prerelease(document: dict[str, Any]) -> None:
+CORE_PRERELEASE_SECURITY = {
+    ("/v1/me", "get"): [{"userOAuth": ["profile:read"]}, {"personalAccessToken": ["profile:read"]}],
+    ("/v1/developer-apps", "post"): [
+        {"userOAuth": ["developer-apps:manage"]},
+        {"personalAccessToken": ["developer-apps:manage"]},
+    ],
+    ("/v1/developer-apps", "get"): [
+        {"userOAuth": ["developer-apps:read"]},
+        {"personalAccessToken": ["developer-apps:read"]},
+    ],
+    ("/v1/developer-apps/{appId}", "get"): [
+        {"userOAuth": ["developer-apps:read"]},
+        {"personalAccessToken": ["developer-apps:read"]},
+    ],
+    ("/v1/developer-apps/{appId}", "patch"): [
+        {"userOAuth": ["developer-apps:manage"]},
+        {"personalAccessToken": ["developer-apps:manage"]},
+    ],
+    ("/v1/developer-apps/{appId}", "delete"): [
+        {"userOAuth": ["developer-apps:manage"]},
+        {"personalAccessToken": ["developer-apps:manage"]},
+    ],
+    # Creating tokens must accept only the OIDC user scheme so tokens can never mint tokens.
+    ("/v1/personal-access-tokens", "post"): [{"userOAuth": ["pat:manage"]}],
+    ("/v1/personal-access-tokens", "get"): [
+        {"userOAuth": ["pat:read"]},
+        {"personalAccessToken": ["pat:read"]},
+    ],
+    ("/v1/personal-access-tokens/{tokenId}", "delete"): [
+        {"userOAuth": ["pat:manage"]},
+        {"personalAccessToken": ["pat:manage"]},
+    ],
+}
+
+PAT_GRANTABLE_SCOPES = {
+    "profile:read",
+    "credits:read",
+    "developer-apps:read",
+    "developer-apps:manage",
+    "pat:read",
+    "pat:manage",
+}
+
+
+def validate_core_prerelease(document: dict[str, Any]) -> None:
     version = document.get("info", {}).get("version")
-    if version != "0.1.0-alpha.1":
-        raise ValueError("core.yaml must lock the identity slice as 0.1.0-alpha.1")
+    if version != "0.1.0-alpha.2":
+        raise ValueError("core.yaml must lock the developer app and PAT slice as 0.1.0-alpha.2")
 
     operation = document.get("paths", {}).get("/v1/me", {}).get("get", {})
     if operation.get("operationId") != "getCurrentUser":
         raise ValueError("core.yaml GET /v1/me must keep operationId getCurrentUser")
-    if operation.get("security") != [{"userOAuth": ["profile:read"]}]:
-        raise ValueError("core.yaml GET /v1/me must require only profile:read")
+    if operation.get("security") != CORE_PRERELEASE_SECURITY[("/v1/me", "get")]:
+        raise ValueError(
+            "core.yaml GET /v1/me must require profile:read for OIDC and personal access tokens"
+        )
     if operation.get("x-mc-plan-stability") != "locked":
         raise ValueError("core.yaml GET /v1/me must be marked locked")
 
@@ -122,6 +175,17 @@ def validate_core_identity_prerelease(document: dict[str, Any]) -> None:
     if actual_refs != expected_refs:
         raise ValueError(f"core.yaml GET /v1/me response refs changed: {actual_refs}")
 
+    for (path, method), expected_security in CORE_PRERELEASE_SECURITY.items():
+        if (path, method) == ("/v1/me", "get"):
+            continue
+        locked_operation = document.get("paths", {}).get(path, {}).get(method, {})
+        if not locked_operation:
+            raise ValueError(f"core.yaml {method.upper()} {path} is missing")
+        if locked_operation.get("security") != expected_security:
+            raise ValueError(
+                f"core.yaml {method.upper()} {path} must keep its locked security requirement"
+            )
+
     problem = json.loads((ROOT / "schemas/common/problem.json").read_text(encoding="utf-8"))
     problem_validator = validator_for(problem)(problem)
     components = document.get("components", {}).get("responses", {})
@@ -129,6 +193,9 @@ def validate_core_identity_prerelease(document: dict[str, Any]) -> None:
         ("AuthenticationRequired", "example", 401, "AUTHENTICATION_REQUIRED"),
         ("AccessForbidden", "examples.insufficientScope.value", 403, "INSUFFICIENT_SCOPE"),
         ("AccessForbidden", "examples.accountUnavailable.value", 403, "ACCOUNT_UNAVAILABLE"),
+        ("AccessForbidden", "examples.roleRequired.value", 403, "ROLE_REQUIRED"),
+        ("ValidationFailed", "example", 400, "VALIDATION_FAILED"),
+        ("NotFound", "example", 404, "NOT_FOUND"),
     ]
     for response_name, example_path, status, code in expected_errors:
         media_type = components.get(response_name, {}).get("content", {}).get(
@@ -150,9 +217,43 @@ def validate_core_identity_prerelease(document: dict[str, Any]) -> None:
     if actor.get("additionalProperties") is not False:
         raise ValueError("PublicActor must reject identity-provider or business-state fields")
 
+    pat = json.loads(
+        (ROOT / "schemas/core/personal-access-token.json").read_text(encoding="utf-8")
+    )
+    pat_fields = set(pat.get("properties", {}))
+    if pat_fields != {
+        "token_id",
+        "token_prefix",
+        "scopes",
+        "status",
+        "expires_at",
+        "created_at",
+        "last_used_at",
+        "revoked_at",
+    }:
+        raise ValueError(f"PersonalAccessToken metadata exposes unexpected fields: {sorted(pat_fields)}")
+    if pat.get("additionalProperties") is not False:
+        raise ValueError("PersonalAccessToken metadata must never expose plaintext or hash fields")
+
+    create_schema = (
+        document.get("components", {})
+        .get("schemas", {})
+        .get("CreatePersonalAccessTokenRequest", {})
+    )
+    expiry = create_schema.get("properties", {}).get("expires_in_days", {})
+    if expiry.get("maximum") != 30 or expiry.get("default") != 30:
+        raise ValueError(
+            "core.yaml must lock the decided 30-day default maximum PAT validity (Q-007)"
+        )
+    scope_enum = set(create_schema.get("properties", {}).get("scopes", {}).get("items", {}).get("enum", []))
+    if scope_enum != PAT_GRANTABLE_SCOPES:
+        raise ValueError(f"CreatePersonalAccessTokenRequest scope enum must match the declared catalog: {sorted(scope_enum)}")
+
     compatibility = (ROOT / "docs/compatibility.md").read_text(encoding="utf-8")
     if "Core `0.1.0-alpha.1`" not in compatibility or "预发布兼容收敛" not in compatibility:
         raise ValueError("docs/compatibility.md must classify Core 0.1.0-alpha.1")
+    if "Core `0.1.0-alpha.2`" not in compatibility or "预发布兼容新增" not in compatibility:
+        raise ValueError("docs/compatibility.md must classify Core 0.1.0-alpha.2")
 
 
 def validate_openapi() -> tuple[int, set[str]]:
@@ -185,7 +286,7 @@ def validate_openapi() -> tuple[int, set[str]]:
 
         validate_security_scopes(source, document)
         if source.name == "core.yaml":
-            validate_core_identity_prerelease(document)
+            validate_core_prerelease(document)
 
     return len(sources), operation_ids
 

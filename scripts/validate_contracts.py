@@ -130,6 +130,13 @@ CORE_PRERELEASE_SECURITY = {
         {"userOAuth": ["pat:manage"]},
         {"personalAccessToken": ["pat:manage"]},
     ],
+    # GET entitlements accepts OIDC users and personal access tokens with credits:read.
+    ("/v1/entitlements", "get"): [
+        {"userOAuth": ["credits:read"]},
+        {"personalAccessToken": ["credits:read"]},
+    ],
+    # Consume is service-to-service only and never treats a service token as a user login.
+    ("/v1/credits/consume", "post"): [{"serviceOAuth": ["credits:consume"]}],
 }
 
 PAT_GRANTABLE_SCOPES = {
@@ -144,8 +151,8 @@ PAT_GRANTABLE_SCOPES = {
 
 def validate_core_prerelease(document: dict[str, Any]) -> None:
     version = document.get("info", {}).get("version")
-    if version != "0.1.0-alpha.2":
-        raise ValueError("core.yaml must lock the developer app and PAT slice as 0.1.0-alpha.2")
+    if version != "0.1.0-alpha.3":
+        raise ValueError("core.yaml must lock the daily entitlement slice as 0.1.0-alpha.3")
 
     operation = document.get("paths", {}).get("/v1/me", {}).get("get", {})
     if operation.get("operationId") != "getCurrentUser":
@@ -196,6 +203,18 @@ def validate_core_prerelease(document: dict[str, Any]) -> None:
         ("AccessForbidden", "examples.roleRequired.value", 403, "ROLE_REQUIRED"),
         ("ValidationFailed", "example", 400, "VALIDATION_FAILED"),
         ("NotFound", "example", 404, "NOT_FOUND"),
+        (
+            "ConsumptionConflict",
+            "examples.idempotencyKeyConflict.value",
+            409,
+            "IDEMPOTENCY_KEY_CONFLICT",
+        ),
+        (
+            "ConsumptionConflict",
+            "examples.entitlementExhausted.value",
+            409,
+            "ENTITLEMENT_EXHAUSTED",
+        ),
     ]
     for response_name, example_path, status, code in expected_errors:
         media_type = components.get(response_name, {}).get("content", {}).get(
@@ -285,11 +304,69 @@ def validate_core_prerelease(document: dict[str, Any]) -> None:
     if scope_enum != PAT_GRANTABLE_SCOPES:
         raise ValueError(f"CreatePersonalAccessTokenRequest scope enum must match the declared catalog: {sorted(scope_enum)}")
 
+    entitlement = json.loads(
+        (ROOT / "schemas/core/entitlement.json").read_text(encoding="utf-8")
+    )
+    if set(entitlement.get("properties", {})) != {
+        "module",
+        "policy_date",
+        "timezone",
+        "granted",
+        "consumed",
+        "remaining",
+    }:
+        raise ValueError(f"Entitlement exposes unexpected fields: {sorted(entitlement.get('properties', {}))}")
+    if entitlement.get("properties", {}).get("timezone", {}).get("const") != "Asia/Shanghai":
+        raise ValueError("Entitlement timezone must stay locked to Asia/Shanghai")
+    if entitlement.get("properties", {}).get("module", {}).get("enum") != ["skin"]:
+        raise ValueError("Entitlement module enum must stay locked to skin")
+    if entitlement.get("additionalProperties") is not False:
+        raise ValueError("Entitlement must reject internal policy rows or database identifiers")
+
+    consume = document.get("paths", {}).get("/v1/credits/consume", {}).get("post", {})
+    if consume.get("operationId") != "consumeCredits":
+        raise ValueError("core.yaml POST /v1/credits/consume must keep operationId consumeCredits")
+    consume_parameters = consume.get("parameters", [])
+    if not any(
+        parameter.get("$ref") == "#/components/parameters/IdempotencyKey"
+        for parameter in consume_parameters
+    ):
+        raise ValueError("core.yaml POST /v1/credits/consume must require the Idempotency-Key parameter")
+    consume_responses = consume.get("responses", {})
+    if consume_responses.get("200", {}).get("content", {}).get("application/json", {}).get("schema", {}).get("$ref") != "#/components/schemas/ConsumptionResult":
+        raise ValueError("core.yaml POST /v1/credits/consume 200 must use ConsumptionResult")
+    if consume_responses.get("201", {}).get("content", {}).get("application/json", {}).get("schema", {}).get("$ref") != "#/components/schemas/ConsumptionResult":
+        raise ValueError("core.yaml POST /v1/credits/consume 201 must use ConsumptionResult")
+    if consume_responses.get("409", {}).get("$ref") != "#/components/responses/ConsumptionConflict":
+        raise ValueError("core.yaml POST /v1/credits/consume 409 must use ConsumptionConflict")
+    consumption_result = (
+        document.get("components", {}).get("schemas", {}).get("ConsumptionResult", {})
+    )
+    if consumption_result.get("properties", {}).get("source", {}).get("enum") != ["daily_entitlement"]:
+        raise ValueError("ConsumptionResult must claim only the implemented daily_entitlement source")
+    entitlements_view = (
+        document.get("paths", {})
+        .get("/v1/entitlements", {})
+        .get("get", {})
+        .get("responses", {})
+        .get("200", {})
+        .get("content", {})
+        .get("application/json", {})
+        .get("schema", {})
+    )
+    if (
+        entitlements_view.get("properties", {}).get("items", {}).get("items", {}).get("$ref")
+        != "../schemas/core/entitlement.json"
+    ):
+        raise ValueError("core.yaml GET /v1/entitlements must return locked entitlement items")
+
     compatibility = (ROOT / "docs/compatibility.md").read_text(encoding="utf-8")
     if "Core `0.1.0-alpha.1`" not in compatibility or "预发布兼容收敛" not in compatibility:
         raise ValueError("docs/compatibility.md must classify Core 0.1.0-alpha.1")
     if "Core `0.1.0-alpha.2`" not in compatibility or "预发布兼容新增" not in compatibility:
         raise ValueError("docs/compatibility.md must classify Core 0.1.0-alpha.2")
+    if "Core `0.1.0-alpha.3`" not in compatibility or "预发布兼容收敛（未实现表面）" not in compatibility:
+        raise ValueError("docs/compatibility.md must classify Core 0.1.0-alpha.3")
 
 
 def validate_openapi() -> tuple[int, set[str]]:

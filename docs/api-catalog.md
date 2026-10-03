@@ -2,11 +2,11 @@
 
 ## Core v1
 
-`0.1.0-alpha.1` 已锁定 `GET /v1/me`：使用 `profile:read`，成功响应只包含 PublicActor；认证失败返回 `AUTHENTICATION_REQUIRED`，scope 不足或业务账号不可用分别返回 `INSUFFICIENT_SCOPE`、不泄露具体状态的 `ACCOUNT_UNAVAILABLE`。
+`0.1.0-alpha.3` 已锁定：`GET /v1/me`（`profile:read`，OIDC 或 PAT）、Developer App 生命周期（`developer-apps:read/manage`）、PAT 生命周期（`pat:read/manage`，PAT 默认最长 30 天）、`GET /v1/entitlements`（`credits:read`，OIDC 或 PAT，返回当日 Asia/Shanghai 权益视图且不消费额度）与 `POST /v1/credits/consume`（服务间 `credits:consume`，Idempotency-Key 幂等，仅 `daily_entitlement` 来源，稳定返回 `IDEMPOTENCY_KEY_CONFLICT` 与 `ENTITLEMENT_EXHAUSTED`）。
 
-仍为后续 F1 骨架：公开资料、每日权益、幂等积分消费。
+仍为后续 F1 骨架：公开资料按 userId 读取、积分账本（credits 来源消费）。
 
-后续 F1 决定：开发者应用管理、PAT 生命周期、角色管理、签到和贡献奖励管理。未决字段不得先写入稳定契约。
+后续 F1 决定：角色管理、签到和贡献奖励管理、免费额度耗尽后的积分回退编排。未决字段不得先写入稳定契约。
 
 ## Community v1
 

@@ -42,7 +42,13 @@
 | Core `0.1.0-alpha.1` | 预发布；生产者与本地身份组合已验证 | `30382fd`：契约测试通过 | 不适用 | 不适用 | 未生成 |
 | Core `0.1.0-alpha.2` | 预发布；生产者已实现并验证 | `ce89a39`：契约测试通过（含 Developer App/PAT 表面与 alpha.1 表面回归） | 不适用 | 不适用 | 未生成 |
 | Core `0.1.0-alpha.3` | 预发布；每日权益生产者已实现并验证 | `8ba869a`：7 项契约、52 项 HTTP E2E、17 项 PostgreSQL 集成通过；锁提交 `fab1f3c` | 不适用 | 不适用 | 未生成 |
-| Core `0.1.0-alpha.4` | 预发布；只读余额与积分账本切片生产者已实现并验证 | `5508d60`：11 项契约、57 项 HTTP E2E、31 项 PostgreSQL 集成通过（含不可变账本并发/幂等/退款/权限/迁移与整数边界证据）；锁提交 `9a85b98` | 不适用 | 不适用 | 未生成 |
+| Core `0.1.0-alpha.4` | 预发布；只读余额与积分账本切片生产者已实现并验证 | `5508d60`：11 项契约、57 项 HTTP E2E、31 项 PostgreSQL 集成通过（含不可变账本并发/幂等/退款/权限/迁移与整数边界证据）；锁提交 `9a85b98` | 不适用 | 不适用 | `0.1.0-alpha.4`（`@mc-plan/core-sdk`，`MCP-F1-CONTRACTS-001`）：generate-check 零漂移、25 项单元、pack 干净工程消费、固定镜像 `5508d60` 真实 HTTP smoke 通过 |
+
+## SDK 0.1.0-alpha.4 验收（MCP-F1-CONTRACTS-001，与 producer 验收分栏）
+
+producer 验收（`MCP-F1-CORE-005`，见上文）与本 SDK/consumer 验收是两栏独立事实；SDK 通过不等于任何消费者已集成。本切片组合：Contracts 工作区（锁提交 `9a85b98`，12 个 sha256 锁定文件）→ `@mc-plan/core-sdk@0.1.0-alpha.4`（openapi-typescript 7.10.1 生成，支持清单内嵌 9 个来源文件 sha256 并按真实文件复算校验）→ 固定 producer 镜像 `mc-plan-core:mcp-f1-core-005-5508d60`（Core `5508d60`）+ 隔离 PostgreSQL 17 + 本地 JWKS 测试发行方。
+
+SDK 侧验收证据：`format:check`、`lint --max-warnings 0`、严格 `typecheck`（含 noUncheckedIndexedAccess/exactOptionalPropertyTypes）、`generate:check` 重跑 diff 为空、25 项单元测试（transport 超时/abort/有界重试不换键/非幂等不重试/4xx 不重试、Problem 解析、支持清单 hash 复算、client 表面与 200 重放/201 成功）、`build`、`pack:check`（pnpm pack 后干净临时工程离线安装并以严格 tsc 编译引用）、`smoke:real` 全场景通过：OIDC 用户读取 `/v1/me`、`/v1/entitlements`（skin/creation_session 当日 3 基线、读不消费）、`/v1/credits/balance`（无账户读零，前后 credit_accounts 与 credit_ledger_entries 计数均为 0）、`consumeCredits` 同键首次 201（`daily_entitlement`，余 2）→ 同键同请求 200 重放同 `consumption_id` → 同键异请求 409 `IDEMPOTENCY_KEY_CONFLICT`；不可信 issuer 401 `AUTHENTICATION_REQUIRED`、缺 `credits:read` 403 `INSUFFICIENT_SCOPE`，均以类型化 Problem 暴露。SDK 为 private 包，仅本地 pack 消费，不发布 npm、不设稳定版本。
 
 ## Core 0.1.0-alpha.1 兼容分类
 

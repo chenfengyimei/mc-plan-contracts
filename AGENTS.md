@@ -12,4 +12,6 @@
 
 不得加入服务业务逻辑、Prisma 模型、真实生产域名、密钥或推测性字段。公共类型不得在服务仓库手写复制。
 
+`sdk/typescript` 是从本仓库锁定 OpenAPI/Schema 生成的唯一官方 SDK 工程（`@mc-plan/core-sdk`，private，仅本地 pack 消费，不发布 npm）。任何契约文件变更必须同步重跑 `pnpm --dir sdk/typescript generate:check`（生成产物零漂移）并使该包全部验收命令通过；SDK 不得暴露无 producer 证据的操作。
+
 提交前运行 `docs/development-plan.md` 和 `docs/validation.md` 中的校验，并仅在实际兼容组合或里程碑变化时更新矩阵/状态页。

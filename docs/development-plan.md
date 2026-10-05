@@ -2,7 +2,7 @@
 
 状态：Active
 
-当前里程碑：F1 Core `0.1.0-alpha.4` 积分只读余额预发布契约与不可变积分账本生产者（Core `5508d60`，`MCP-F1-CORE-005`）已验证；SDK 与消费者按后续工作流推进。
+当前里程碑：F1 Core `0.1.0-alpha.4` 积分只读余额预发布契约与不可变积分账本生产者（Core `5508d60`，`MCP-F1-CORE-005`）已验证；首个 TypeScript SDK 切片（`@mc-plan/core-sdk@0.1.0-alpha.4`，12 个已验收操作，`MCP-F1-CONTRACTS-001`）已实现并对固定镜像完成真实 HTTP 验收；消费者按后续工作流推进。
 
 ## 固定顺序
 
@@ -26,6 +26,19 @@ python scripts/validate_contracts.py
 pnpm --package=@redocly/cli dlx redocly lint "openapi/*.yaml"
 pwsh -File ..\mc-plan-foundation\scripts\validate-coordination.ps1 `
   -TrackingId <ID> -Phase Continue
+```
+
+SDK 工程（`sdk/typescript`，`MCP-F1-CONTRACTS-001` 引入后追加）：
+
+```sh
+pnpm --dir sdk/typescript format:check
+pnpm --dir sdk/typescript lint
+pnpm --dir sdk/typescript typecheck
+pnpm --dir sdk/typescript generate:check   # openapi-typescript 重跑，src/generated diff 必须为空
+pnpm --dir sdk/typescript test
+pnpm --dir sdk/typescript build
+pnpm --dir sdk/typescript pack:check       # pnpm pack + 干净临时工程消费验证
+pnpm --dir sdk/typescript smoke:real       # 固定 producer 镜像 + 隔离 PostgreSQL 的真实 HTTP 验收
 ```
 
 引入 SDK 工程后再增加生成差异、类型检查、单元测试和消费者契约测试；命令必须写回本文件与 `AGENTS.md`。

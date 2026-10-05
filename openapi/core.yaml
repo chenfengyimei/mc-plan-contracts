@@ -1,13 +1,15 @@
 openapi: 3.1.0
 info:
   title: MC Plan Core API
-  version: 0.1.0-alpha.3
+  version: 0.1.0-alpha.4
   description: >-
     Public business identity, profile, developer application, personal access
     token, entitlement, and credit surface. Keycloak remains the credential and
     OIDC provider; personal access tokens are an alternative bearer credential
     for automation and never exceed their creator's scopes. Service-to-service
     consumption uses client-credentials tokens with the credits:consume scope.
+    The credit balance is exposed to its owning user strictly read-only and can
+    never mint credits or bypass authentication.
   license:
     name: Apache License 2.0
     identifier: Apache-2.0
@@ -349,6 +351,36 @@ paths:
                     items:
                       $ref: ../schemas/core/entitlement.json
                 additionalProperties: false
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/AccessForbidden"
+        default:
+          $ref: "#/components/responses/Problem"
+  /v1/credits/balance:
+    get:
+      tags: [Credits]
+      operationId: getCreditBalance
+      summary: Return the current user's credit balance
+      description: >-
+        Returns the caller's non-negative credit balance. The read is strictly
+        read-only: it never creates a credit account, ledger entry, audit
+        record, or outbox record. An existing ACTIVE user without a credit
+        account reads a zero balance without an account being created.
+        Authentication and account-state failures follow the locked
+        AuthenticationRequired and AccessForbidden semantics; this operation
+        adds no other error codes.
+      x-mc-plan-stability: prerelease
+      security:
+        - userOAuth: [credits:read]
+        - personalAccessToken: [credits:read]
+      responses:
+        "200":
+          description: Credit balance
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/core/credit-balance.json
         "401":
           $ref: "#/components/responses/AuthenticationRequired"
         "403":

@@ -135,6 +135,11 @@ CORE_PRERELEASE_SECURITY = {
         {"userOAuth": ["credits:read"]},
         {"personalAccessToken": ["credits:read"]},
     ],
+    # GET credit balance accepts OIDC users and personal access tokens with credits:read.
+    ("/v1/credits/balance", "get"): [
+        {"userOAuth": ["credits:read"]},
+        {"personalAccessToken": ["credits:read"]},
+    ],
     # Consume is service-to-service only and never treats a service token as a user login.
     ("/v1/credits/consume", "post"): [{"serviceOAuth": ["credits:consume"]}],
 }
@@ -151,8 +156,8 @@ PAT_GRANTABLE_SCOPES = {
 
 def validate_core_prerelease(document: dict[str, Any]) -> None:
     version = document.get("info", {}).get("version")
-    if version != "0.1.0-alpha.3":
-        raise ValueError("core.yaml must lock the daily entitlement slice as 0.1.0-alpha.3")
+    if version != "0.1.0-alpha.4":
+        raise ValueError("core.yaml must lock the credit balance slice as 0.1.0-alpha.4")
 
     operation = document.get("paths", {}).get("/v1/me", {}).get("get", {})
     if operation.get("operationId") != "getCurrentUser":
@@ -323,6 +328,71 @@ def validate_core_prerelease(document: dict[str, Any]) -> None:
     if entitlement.get("additionalProperties") is not False:
         raise ValueError("Entitlement must reject internal policy rows or database identifiers")
 
+    balance_path = document.get("paths", {}).get("/v1/credits/balance", {})
+    balance_methods = {
+        method for method in balance_path if isinstance(method, str) and method.lower() in HTTP_METHODS
+    }
+    if balance_methods != {"get"}:
+        raise ValueError(
+            "core.yaml /v1/credits/balance must stay a read-only GET surface with no other methods"
+        )
+    balance_operation = balance_path.get("get", {})
+    if balance_operation.get("operationId") != "getCreditBalance":
+        raise ValueError(
+            "core.yaml GET /v1/credits/balance must keep operationId getCreditBalance"
+        )
+    if balance_operation.get("x-mc-plan-stability") != "prerelease":
+        raise ValueError("core.yaml GET /v1/credits/balance must be marked prerelease")
+    balance_responses = balance_operation.get("responses", {})
+    if (
+        balance_responses.get("200", {})
+        .get("content", {})
+        .get("application/json", {})
+        .get("schema", {})
+        .get("$ref")
+        != "../schemas/core/credit-balance.json"
+    ):
+        raise ValueError(
+            "core.yaml GET /v1/credits/balance 200 must use the locked CreditBalance schema"
+        )
+    if (
+        balance_responses.get("401", {}).get("$ref")
+        != "#/components/responses/AuthenticationRequired"
+    ):
+        raise ValueError("core.yaml GET /v1/credits/balance must keep the locked 401 problem")
+    if (
+        balance_responses.get("403", {}).get("$ref")
+        != "#/components/responses/AccessForbidden"
+    ):
+        raise ValueError("core.yaml GET /v1/credits/balance must keep the locked 403 problem")
+    if "404" in balance_responses:
+        raise ValueError(
+            "core.yaml GET /v1/credits/balance must not invent a 404 for the caller's own balance"
+        )
+
+    balance = json.loads((ROOT / "schemas/core/credit-balance.json").read_text(encoding="utf-8"))
+    if set(balance.get("properties", {})) != {"user_id", "balance"}:
+        raise ValueError(
+            f"CreditBalance exposes unexpected fields: {sorted(balance.get('properties', {}))}"
+        )
+    if balance.get("properties", {}).get("balance", {}).get("minimum") != 0:
+        raise ValueError("CreditBalance must lock a non-negative integer balance")
+    if balance.get("additionalProperties") is not False:
+        raise ValueError("CreditBalance must reject unexpected fields")
+
+    ledger_entry = json.loads(
+        (ROOT / "schemas/core/credit-ledger-entry.json").read_text(encoding="utf-8")
+    )
+    if ledger_entry.get("properties", {}).get("kind", {}).get("enum") != [
+        "grant",
+        "consume",
+        "refund",
+        "adjustment",
+    ]:
+        raise ValueError("CreditLedgerEntry must keep the four immutable ledger kinds")
+    if ledger_entry.get("properties", {}).get("balance_after", {}).get("minimum") != 0:
+        raise ValueError("CreditLedgerEntry must keep non-negative balances")
+
     consume = document.get("paths", {}).get("/v1/credits/consume", {}).get("post", {})
     if consume.get("operationId") != "consumeCredits":
         raise ValueError("core.yaml POST /v1/credits/consume must keep operationId consumeCredits")
@@ -367,6 +437,13 @@ def validate_core_prerelease(document: dict[str, Any]) -> None:
         raise ValueError("docs/compatibility.md must classify Core 0.1.0-alpha.2")
     if "Core `0.1.0-alpha.3`" not in compatibility or "预发布兼容收敛（未实现表面）" not in compatibility:
         raise ValueError("docs/compatibility.md must classify Core 0.1.0-alpha.3")
+    if (
+        "Core `0.1.0-alpha.4`" not in compatibility
+        or "预发布兼容新增（只读余额）" not in compatibility
+    ):
+        raise ValueError(
+            "docs/compatibility.md must classify Core 0.1.0-alpha.4 as a read-only compatible addition"
+        )
 
 
 def validate_openapi() -> tuple[int, set[str]]:

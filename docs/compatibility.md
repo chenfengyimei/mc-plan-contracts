@@ -22,6 +22,12 @@
 
 `MCP-F1-CORE-004` 已验证 Contracts 锁提交 `fab1f3c` 与 Core `8ba869a` 的组合：九个锁定文件无漂移，七项生产者契约测试涵盖原 alpha.2 表面回归、EntitlementBalance、直接读取锁定 OpenAPI 的 ConsumptionResult 与两个 409 Problem；52 项 HTTP E2E 和 17 项隔离 PostgreSQL 集成验收通过，包括跨策略并发每天三个、跨日不累计、历史快照、持久化重放及服务 scope 拒绝。兼容分类与发布顺序保持不变；不代表 Keycloak 服务客户端已部署，也不代表 SDK、Community 或 Skin 已集成。
 
+## Core `0.1.0-alpha.4` 兼容分类
+
+本版本是在 `0.1.0-alpha.3` 之上的**预发布兼容新增（只读余额）**：新增 `GET /v1/credits/balance` 与 `CreditBalance` JSON Schema（`credits:read`，OIDC 或 PAT；非负整数余额；未建立积分账户的已存在 ACTIVE 用户读取为零且不建账户；严格只读，不产生积分账户、账本、审计或 outbox 副作用；401/403 沿用既有 AuthenticationRequired/AccessForbidden 与 actor 解析语义，不新增公共错误码）。`0.1.0-alpha.3` 已锁定的全部表面保持原语义，`POST /v1/credits/consume` 的 `ConsumptionResult.source` 枚举仍仅 `daily_entitlement`；机器校验锁定余额只读（路径仅 GET）、CreditBalance 字段集与非负下限、CreditLedgerEntry 四类 kind 与非负边界，以及 consume 来源枚举不扩展。Core 内部不可变积分账本（grant/consume/refund/adjustment 四类可信内部原语、credits 专用幂等命令表、单事务非负不变量、同事务审计与 INTERNAL outbox、应用服务级余额核对）不是公共接口变化，由生产者工作流按内部记录校验输入（`events/credit.changed.v1.json`、`event-envelope` 与 `credit-ledger-entry` Schema）验收；内部原语不经任何公共 HTTP 输入暴露。
+
+发布顺序为 Contracts `0.1.0-alpha.4` → Core 生产者与契约测试 → 后续 TypeScript SDK 与消费者工作流（须等本生产者工作流关闭）。回退时生产者可回到仅实现 `0.1.0-alpha.3` 每日权益切片的状态；不得保留一个与本契约语义不一致的余额表面。
+
 ## 发布顺序
 
 契约预发布 → 生产者兼容实现 → SDK 预发布 → 消费者兼容实现 → 集成验证 → 稳定契约/SDK → 观察期后移除旧行为。

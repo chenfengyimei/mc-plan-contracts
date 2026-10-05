@@ -2,11 +2,11 @@
 
 ## Core v1
 
-`0.1.0-alpha.3` 已锁定：`GET /v1/me`（`profile:read`，OIDC 或 PAT）、Developer App 生命周期（`developer-apps:read/manage`）、PAT 生命周期（`pat:read/manage`，PAT 默认最长 30 天）、`GET /v1/entitlements`（`credits:read`，OIDC 或 PAT，返回当日 Asia/Shanghai 权益视图且不消费额度）与 `POST /v1/credits/consume`（服务间 `credits:consume`，Idempotency-Key 幂等，仅 `daily_entitlement` 来源，稳定返回 `IDEMPOTENCY_KEY_CONFLICT` 与 `ENTITLEMENT_EXHAUSTED`）。
+`0.1.0-alpha.4` 已锁定：`GET /v1/me`（`profile:read`，OIDC 或 PAT）、Developer App 生命周期（`developer-apps:read/manage`）、PAT 生命周期（`pat:read/manage`，PAT 默认最长 30 天）、`GET /v1/entitlements`（`credits:read`，OIDC 或 PAT，返回当日 Asia/Shanghai 权益视图且不消费额度）、`GET /v1/credits/balance`（`credits:read`，OIDC 或 PAT，返回非负整数余额；无账户的已存在 ACTIVE 用户读取为零且不建账户；严格只读，不产生账户、账本、审计或 outbox 副作用）与 `POST /v1/credits/consume`（服务间 `credits:consume`，Idempotency-Key 幂等，仅 `daily_entitlement` 来源，稳定返回 `IDEMPOTENCY_KEY_CONFLICT` 与 `ENTITLEMENT_EXHAUSTED`）。
 
-仍为后续 F1 骨架：公开资料按 userId 读取、积分账本（credits 来源消费）。
+仍为后续 F1 骨架：公开资料按 userId 读取、积分账本的公共消费（credits 来源消费）。
 
-后续 F1 决定：角色管理、签到和贡献奖励管理、免费额度耗尽后的积分回退编排。未决字段不得先写入稳定契约。
+后续 F1 决定：角色管理、签到和贡献奖励管理、免费额度耗尽后的积分回退编排。未决字段不得先写入稳定契约。Core 内部不可变积分账本原语（grant/consume/refund/adjustment、幂等命令、余额核对）属服务内部实现，不经公共接口暴露。
 
 ## Community v1
 

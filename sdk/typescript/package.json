@@ -1,0 +1,47 @@
+{
+  "name": "@mc-plan/core-sdk",
+  "version": "0.1.0-alpha.4",
+  "private": true,
+  "description": "Producer-verified TypeScript client for the MC Plan Core public API 0.1.0-alpha.4. Generated from the locked contract files in this repository; not published to any registry.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "engines": {
+    "node": ">=20.11.0"
+  },
+  "sideEffects": false,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "generate": "openapi-typescript ../../openapi/core.yaml -o src/generated/core-api.ts",
+    "generate:check": "openapi-typescript ../../openapi/core.yaml -o src/generated/core-api.ts && git --no-pager diff --exit-code -- src/generated",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "eslint . --max-warnings 0",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run",
+    "build": "tsc -p tsconfig.build.json",
+    "pack:check": "node scripts/pack-check.mjs",
+    "smoke:real": "tsc -p tsconfig.build.json && node smoke/smoke-real.mjs"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@types/node": "24.19.0",
+    "eslint": "10.11.0",
+    "globals": "17.12.0",
+    "jose": "6.2.12",
+    "openapi-typescript": "7.10.1",
+    "prettier": "3.9.9",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.71.0",
+    "vitest": "5.0.2"
+  }
+}

@@ -20,6 +20,8 @@
 
 发布顺序为 Contracts `0.1.0-alpha.3` → Core 生产者与契约测试 → 后续 TypeScript SDK 与消费者工作流。回退时生产者可回到仅实现 `0.1.0-alpha.2` 授权与令牌切片的状态；不得保留一个与本契约语义不一致的权益或消费表面。
 
+`MCP-F1-CORE-004` 已验证 Contracts 锁提交 `fab1f3c` 与 Core `8ba869a` 的组合：九个锁定文件无漂移，七项生产者契约测试涵盖原 alpha.2 表面回归、EntitlementBalance、直接读取锁定 OpenAPI 的 ConsumptionResult 与两个 409 Problem；52 项 HTTP E2E 和 17 项隔离 PostgreSQL 集成验收通过，包括跨策略并发每天三个、跨日不累计、历史快照、持久化重放及服务 scope 拒绝。兼容分类与发布顺序保持不变；不代表 Keycloak 服务客户端已部署，也不代表 SDK、Community 或 Skin 已集成。
+
 ## 发布顺序
 
 契约预发布 → 生产者兼容实现 → SDK 预发布 → 消费者兼容实现 → 集成验证 → 稳定契约/SDK → 观察期后移除旧行为。
@@ -31,6 +33,7 @@
 | `0.1.0-draft` | 文档骨架 | 未实现 | 未实现 | 未实现 | 未生成 |
 | Core `0.1.0-alpha.1` | 预发布；生产者与本地身份组合已验证 | `30382fd`：契约测试通过 | 不适用 | 不适用 | 未生成 |
 | Core `0.1.0-alpha.2` | 预发布；生产者已实现并验证 | `ce89a39`：契约测试通过（含 Developer App/PAT 表面与 alpha.1 表面回归） | 不适用 | 不适用 | 未生成 |
+| Core `0.1.0-alpha.3` | 预发布；每日权益生产者已实现并验证 | `8ba869a`：7 项契约、52 项 HTTP E2E、17 项 PostgreSQL 集成通过；锁提交 `fab1f3c` | 不适用 | 不适用 | 未生成 |
 
 ## Core 0.1.0-alpha.1 兼容分类
 

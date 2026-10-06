@@ -4,816 +4,928 @@
  */
 
 export interface paths {
-  '/v1/me': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/v1/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Return the current MC Plan public profile
+         * @description Resolves the verified OIDC identity or a valid personal access token to a stable MC Plan user and returns only its public actor fields. Identity-provider claims and business account security state are never exposed.
+         */
+        get: operations["getCurrentUser"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /**
-     * Return the current MC Plan public profile
-     * @description Resolves the verified OIDC identity or a valid personal access token to a stable MC Plan user and returns only its public actor fields. Identity-provider claims and business account security state are never exposed.
-     */
-    get: operations['getCurrentUser'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/v1/users/{userId}': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        userId: components['parameters']['UserId'];
-      };
-      cookie?: never;
+    "/v1/users/{userId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                userId: components["parameters"]["UserId"];
+            };
+            cookie?: never;
+        };
+        /** Return a public creator profile */
+        get: operations["getPublicUser"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /** Return a public creator profile */
-    get: operations['getPublicUser'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/v1/developer-apps': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/v1/developer-apps": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List the current user's developer applications */
+        get: operations["listDeveloperApps"];
+        put?: never;
+        /**
+         * Register a developer application for the current user
+         * @description Registers an OAuth/OIDC client application owned by the current user. Confidential clients receive a generated client secret exactly once in the create response; only its hash is stored. Redirect URIs must match exactly and use HTTPS, except explicit loopback development addresses. Requires the developer or admin business role.
+         */
+        post: operations["createDeveloperApp"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /** List the current user's developer applications */
-    get: operations['listDeveloperApps'];
-    put?: never;
-    /**
-     * Register a developer application for the current user
-     * @description Registers an OAuth/OIDC client application owned by the current user. Confidential clients receive a generated client secret exactly once in the create response; only its hash is stored. Redirect URIs must match exactly and use HTTPS, except explicit loopback development addresses. Requires the developer or admin business role.
-     */
-    post: operations['createDeveloperApp'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/v1/developer-apps/{appId}': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        appId: components['parameters']['AppId'];
-      };
-      cookie?: never;
+    "/v1/developer-apps/{appId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                appId: components["parameters"]["AppId"];
+            };
+            cookie?: never;
+        };
+        /** Return one of the current user's developer applications */
+        get: operations["getDeveloperApp"];
+        put?: never;
+        post?: never;
+        /**
+         * Revoke a developer application
+         * @description Marks an owned application revoked. The application keeps its audit history. Requires the developer or admin business role.
+         */
+        delete: operations["revokeDeveloperApp"];
+        options?: never;
+        head?: never;
+        /**
+         * Approve or narrow a developer application's scopes
+         * @description Replaces the approved scope set of an owned application. Widening stays within the caller's current scopes and requires the developer or admin business role. Requires the developer or admin business role.
+         */
+        patch: operations["approveDeveloperAppScopes"];
+        trace?: never;
     };
-    /** Return one of the current user's developer applications */
-    get: operations['getDeveloperApp'];
-    put?: never;
-    post?: never;
-    /**
-     * Revoke a developer application
-     * @description Marks an owned application revoked. The application keeps its audit history. Requires the developer or admin business role.
-     */
-    delete: operations['revokeDeveloperApp'];
-    options?: never;
-    head?: never;
-    /**
-     * Approve or narrow a developer application's scopes
-     * @description Replaces the approved scope set of an owned application. Widening stays within the caller's current scopes and requires the developer or admin business role. Requires the developer or admin business role.
-     */
-    patch: operations['approveDeveloperAppScopes'];
-    trace?: never;
-  };
-  '/v1/personal-access-tokens': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/v1/personal-access-tokens": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the current user's personal access token metadata
+         * @description Returns metadata only. Plaintext token values and stored hashes are never returned.
+         */
+        get: operations["listPersonalAccessTokens"];
+        put?: never;
+        /**
+         * Issue a personal access token for the current user
+         * @description Issues a scope-limited personal access token. Requested scopes must be a subset of the caller's current scopes, and validity never exceeds the decided 30-day default maximum. The plaintext token is returned exactly once; only a keyed hash and a short prefix are stored. Creating tokens always requires an OIDC user token and the developer or admin business role, so tokens cannot mint further tokens.
+         */
+        post: operations["createPersonalAccessToken"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /**
-     * List the current user's personal access token metadata
-     * @description Returns metadata only. Plaintext token values and stored hashes are never returned.
-     */
-    get: operations['listPersonalAccessTokens'];
-    put?: never;
-    /**
-     * Issue a personal access token for the current user
-     * @description Issues a scope-limited personal access token. Requested scopes must be a subset of the caller's current scopes, and validity never exceeds the decided 30-day default maximum. The plaintext token is returned exactly once; only a keyed hash and a short prefix are stored. Creating tokens always requires an OIDC user token and the developer or admin business role, so tokens cannot mint further tokens.
-     */
-    post: operations['createPersonalAccessToken'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/v1/personal-access-tokens/{tokenId}': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        tokenId: components['parameters']['TokenId'];
-      };
-      cookie?: never;
+    "/v1/personal-access-tokens/{tokenId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tokenId: components["parameters"]["TokenId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Revoke a personal access token
+         * @description Marks an owned token revoked. The token stops authenticating immediately. Requires the developer or admin business role.
+         */
+        delete: operations["revokePersonalAccessToken"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    post?: never;
-    /**
-     * Revoke a personal access token
-     * @description Marks an owned token revoked. The token stops authenticating immediately. Requires the developer or admin business role.
-     */
-    delete: operations['revokePersonalAccessToken'];
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/v1/entitlements': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/v1/entitlements": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Return the current user's active daily entitlements
+         * @description Returns the caller's entitlement for the current Asia/Shanghai natural day. The view never consumes quota; entitlements materialize only on the first real consumption. The response exposes only the module policy summary and never internal policy rows, database identifiers or other users' data.
+         */
+        get: operations["listCurrentEntitlements"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /**
-     * Return the current user's active daily entitlements
-     * @description Returns the caller's entitlement for the current Asia/Shanghai natural day. The view never consumes quota; entitlements materialize only on the first real consumption. The response exposes only the module policy summary and never internal policy rows, database identifiers or other users' data.
-     */
-    get: operations['listCurrentEntitlements'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/v1/credits/balance': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/v1/credits/balance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Return the current user's credit balance
+         * @description Returns the caller's non-negative credit balance. The read is strictly read-only: it never creates a credit account, ledger entry, audit record, or outbox record. An existing ACTIVE user without a credit account reads a zero balance without an account being created. Authentication and account-state failures follow the locked AuthenticationRequired and AccessForbidden semantics; this operation adds no other error codes.
+         */
+        get: operations["getCreditBalance"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    /**
-     * Return the current user's credit balance
-     * @description Returns the caller's non-negative credit balance. The read is strictly read-only: it never creates a credit account, ledger entry, audit record, or outbox record. An existing ACTIVE user without a credit account reads a zero balance without an account being created. Authentication and account-state failures follow the locked AuthenticationRequired and AccessForbidden semantics; this operation adds no other error codes.
-     */
-    get: operations['getCreditBalance'];
-    put?: never;
-    post?: never;
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
-  '/v1/credits/consume': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    "/v1/credits/consume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Consume a daily entitlement for an authorized module operation
+         * @description Service-to-service consumption. Only the daily_entitlement source is implemented in this prerelease: the credits source arrives in a later prerelease and must not be claimed. Retrying the same Idempotency-Key with the same request returns the original result; the same key with a different request is rejected with a stable conflict. Exhausted entitlements return a stable, machine-recognizable problem.
+         */
+        post: operations["consumeCredits"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
     };
-    get?: never;
-    put?: never;
-    /**
-     * Consume a daily entitlement for an authorized module operation
-     * @description Service-to-service consumption. Only the daily_entitlement source is implemented in this prerelease: the credits source arrives in a later prerelease and must not be claimed. Retrying the same Idempotency-Key with the same request returns the original result; the same key with a different request is rejected with a stable conflict. Exhausted entitlements return a stable, machine-recognizable problem.
-     */
-    post: operations['consumeCredits'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
+    "/v1/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Pull the oldest unacknowledged internal events for this consumer
+         * @description Consumer-pull event delivery required by ADR-0011. Returns the oldest unacknowledged events for the authenticated service consumer in publish order, bounded by the limit query parameter. Delivery is at-least-once: the same events keep being returned until the consumer acknowledges them, so consumers must deduplicate by the locked envelope's event_id. The cursor in the response is an opaque delivery position after the last returned event; passing it to the acknowledgment operation confirms every event up to and including that position for this consumer only. A fully caught-up consumer receives an empty items array and a null next_cursor. This operation never treats a service token as a user login and never exposes user-scheme scopes.
+         */
+        get: operations["listDeliveredEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/events/acknowledgments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Acknowledge delivered events up to a cursor for this consumer
+         * @description Explicitly confirms that the service consumer has finished processing every event up to and including the given cursor's delivery position. The acknowledgment is idempotent: re-acknowledging an already-acknowledged cursor is a no-op that returns the current acknowledged position, and a cursor that is unknown, malformed, or not issued to this consumer is rejected as a validation problem. Only after an acknowledgment may the pull operation stop redelivering the confirmed events; unacknowledged events remain redeliverable (at-least-once). This operation advances only the calling consumer's position and never exposes another consumer's state.
+         */
+        post: operations["acknowledgeEvents"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
-  schemas: {
-    ConsumptionResult: {
-      consumption_id: string;
-      /**
-       * @description Only the daily_entitlement source is implemented in this prerelease; the credits source arrives in a later prerelease.
-       * @enum {string}
-       */
-      source: 'daily_entitlement';
-      units: number;
-      /** @description Remaining daily entitlement units for the same policy date. */
-      remaining: number;
-      /** Format: date-time */
-      created_at: string;
-    };
-    CreateDeveloperAppRequest: {
-      name: string;
-      /** @enum {string} */
-      client_type: 'public' | 'confidential';
-      redirect_uris: string[];
-      approved_scopes: string[];
-    };
-    ApproveDeveloperAppScopesRequest: {
-      approved_scopes: string[];
-    };
-    CreatePersonalAccessTokenRequest: {
-      scopes: (
-        | 'profile:read'
-        | 'credits:read'
-        | 'developer-apps:read'
-        | 'developer-apps:manage'
-        | 'pat:read'
-        | 'pat:manage'
-      )[];
-      /**
-       * @description Token validity in days. The decided default maximum is 30 days (Foundation Q-007); requests above the maximum are rejected.
-       * @default 30
-       */
-      expires_in_days: number;
-      /** @description Optional owning developer application for grouped revocation. */
-      developer_app_id?: string | null;
-    };
-    /** ProblemDetails */
-    problem: {
-      /** Format: uri-reference */
-      type: string;
-      title: string;
-      status: number;
-      code: string;
-      detail?: string;
-      trace_id: string;
-      errors?: {
-        field: string;
-        code: string;
-        message?: string;
-      }[];
-    } & {
-      [key: string]: unknown;
-    };
-    /** PublicActor */
-    actor: {
-      user_id: string;
-      display_name: string;
-      /** Format: uri */
-      avatar_url?: string | null;
-    };
-    /**
-     * DeveloperApp
-     * @description A user-registered OAuth/OIDC client application. Client secrets are returned only by the create response and are never stored in plaintext.
-     */
-    'developer-app': {
-      app_id: string;
-      name: string;
-      /** @enum {string} */
-      client_type: 'public' | 'confidential';
-      redirect_uris: string[];
-      approved_scopes: string[];
-      /** @enum {string} */
-      status: 'active' | 'revoked';
-      /** Format: date-time */
-      created_at: string;
-      /** Format: date-time */
-      updated_at: string;
-    };
-    /**
-     * DeveloperAppCreated
-     * @description Create response for a developer application. The generated client secret is returned exactly once for confidential clients; only its keyed hash is stored.
-     */
-    'developer-app-created': {
-      app_id: string;
-      name: string;
-      /** @enum {string} */
-      client_type: 'public' | 'confidential';
-      redirect_uris: string[];
-      approved_scopes: string[];
-      /** @enum {string} */
-      status: 'active' | 'revoked';
-      client_secret: string | null;
-      /** Format: date-time */
-      created_at: string;
-      /** Format: date-time */
-      updated_at: string;
-    };
-    /**
-     * PersonalAccessToken
-     * @description Personal access token metadata. The plaintext token value is returned only by the create response and is never stored, listed, or hashed with an unsalted algorithm.
-     */
-    'personal-access-token': {
-      token_id: string;
-      token_prefix: string;
-      scopes: string[];
-      /** @enum {string} */
-      status: 'active' | 'expired' | 'revoked';
-      /** Format: date-time */
-      expires_at: string;
-      /** Format: date-time */
-      created_at: string;
-      /** Format: date-time */
-      last_used_at?: string | null;
-      /** Format: date-time */
-      revoked_at?: string | null;
-    };
-    /**
-     * PersonalAccessTokenCreated
-     * @description Create response for a personal access token. The plaintext token value is returned exactly once and is never stored.
-     */
-    'personal-access-token-created': {
-      token_id: string;
-      token: string;
-      token_prefix: string;
-      scopes: string[];
-      /** @enum {string} */
-      status: 'active' | 'expired' | 'revoked';
-      /** Format: date-time */
-      expires_at: string;
-      /** Format: date-time */
-      created_at: string;
-    };
-    /** EntitlementBalance */
-    entitlement: {
-      /** @enum {string} */
-      module: 'skin';
-      /** Format: date */
-      policy_date: string;
-      /** @constant */
-      timezone: 'Asia/Shanghai';
-      granted: number;
-      consumed: number;
-      remaining: number;
-    };
-    /** CreditBalance */
-    'credit-balance': {
-      user_id: string;
-      balance: number;
-    };
-  };
-  responses: {
-    /** @description Authentication is missing or the credential fails signature, issuer, audience, expiry, verified-email, or personal-access-token validation. */
-    AuthenticationRequired: {
-      headers: {
-        [name: string]: unknown;
-      };
-      content: {
+    schemas: {
+        ConsumptionResult: {
+            consumption_id: string;
+            /**
+             * @description Only the daily_entitlement source is implemented in this prerelease; the credits source arrives in a later prerelease.
+             * @enum {string}
+             */
+            source: "daily_entitlement";
+            units: number;
+            /** @description Remaining daily entitlement units for the same policy date. */
+            remaining: number;
+            /** Format: date-time */
+            created_at: string;
+        };
+        CreateDeveloperAppRequest: {
+            name: string;
+            /** @enum {string} */
+            client_type: "public" | "confidential";
+            redirect_uris: string[];
+            approved_scopes: string[];
+        };
+        ApproveDeveloperAppScopesRequest: {
+            approved_scopes: string[];
+        };
+        CreatePersonalAccessTokenRequest: {
+            scopes: ("profile:read" | "credits:read" | "developer-apps:read" | "developer-apps:manage" | "pat:read" | "pat:manage")[];
+            /**
+             * @description Token validity in days. The decided default maximum is 30 days (Foundation Q-007); requests above the maximum are rejected.
+             * @default 30
+             */
+            expires_in_days: number;
+            /** @description Optional owning developer application for grouped revocation. */
+            developer_app_id?: string | null;
+        };
+        /** ProblemDetails */
+        problem: {
+            /** Format: uri-reference */
+            type: string;
+            title: string;
+            status: number;
+            code: string;
+            detail?: string;
+            trace_id: string;
+            errors?: {
+                field: string;
+                code: string;
+                message?: string;
+            }[];
+        } & {
+            [key: string]: unknown;
+        };
+        /** PublicActor */
+        actor: {
+            user_id: string;
+            display_name: string;
+            /** Format: uri */
+            avatar_url?: string | null;
+        };
         /**
-         * @example {
-         *       "type": "/problems/authentication-required",
-         *       "title": "Authentication required",
-         *       "status": 401,
-         *       "code": "AUTHENTICATION_REQUIRED",
-         *       "trace_id": "01HZZZZZZZZZZZZZZZZZZZZZZZ"
-         *     }
+         * DeveloperApp
+         * @description A user-registered OAuth/OIDC client application. Client secrets are returned only by the create response and are never stored in plaintext.
          */
-        'application/problem+json': components['schemas']['problem'];
-      };
-    };
-    /** @description The credential lacks the required scope, the MC Plan business account cannot access this operation, or the caller's business role is not allowed. Account state is not disclosed. */
-    AccessForbidden: {
-      headers: {
-        [name: string]: unknown;
-      };
-      content: {
-        'application/problem+json': components['schemas']['problem'];
-      };
-    };
-    /** @description The request body or parameters failed validation. */
-    ValidationFailed: {
-      headers: {
-        [name: string]: unknown;
-      };
-      content: {
+        "developer-app": {
+            app_id: string;
+            name: string;
+            /** @enum {string} */
+            client_type: "public" | "confidential";
+            redirect_uris: string[];
+            approved_scopes: string[];
+            /** @enum {string} */
+            status: "active" | "revoked";
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
         /**
-         * @example {
-         *       "type": "/problems/validation-failed",
-         *       "title": "Validation failed",
-         *       "status": 400,
-         *       "code": "VALIDATION_FAILED",
-         *       "trace_id": "01HZZZZZZZZZZZZZZZZZZZZZZZ",
-         *       "errors": [
-         *         {
-         *           "field": "redirect_uris",
-         *           "code": "INVALID_REDIRECT_URI",
-         *           "message": "Redirect URIs must be exact-match HTTPS or loopback development addresses."
-         *         }
-         *       ]
-         *     }
+         * DeveloperAppCreated
+         * @description Create response for a developer application. The generated client secret is returned exactly once for confidential clients; only its keyed hash is stored.
          */
-        'application/problem+json': components['schemas']['problem'];
-      };
-    };
-    /** @description The referenced resource does not exist or is not owned by the caller. */
-    NotFound: {
-      headers: {
-        [name: string]: unknown;
-      };
-      content: {
+        "developer-app-created": {
+            app_id: string;
+            name: string;
+            /** @enum {string} */
+            client_type: "public" | "confidential";
+            redirect_uris: string[];
+            approved_scopes: string[];
+            /** @enum {string} */
+            status: "active" | "revoked";
+            client_secret: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
         /**
-         * @example {
-         *       "type": "/problems/not-found",
-         *       "title": "Not found",
-         *       "status": 404,
-         *       "code": "NOT_FOUND",
-         *       "trace_id": "01HZZZZZZZZZZZZZZZZZZZZZZZ"
-         *     }
+         * PersonalAccessToken
+         * @description Personal access token metadata. The plaintext token value is returned only by the create response and is never stored, listed, or hashed with an unsalted algorithm.
          */
-        'application/problem+json': components['schemas']['problem'];
-      };
+        "personal-access-token": {
+            token_id: string;
+            token_prefix: string;
+            scopes: string[];
+            /** @enum {string} */
+            status: "active" | "expired" | "revoked";
+            /** Format: date-time */
+            expires_at: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            last_used_at?: string | null;
+            /** Format: date-time */
+            revoked_at?: string | null;
+        };
+        /**
+         * PersonalAccessTokenCreated
+         * @description Create response for a personal access token. The plaintext token value is returned exactly once and is never stored.
+         */
+        "personal-access-token-created": {
+            token_id: string;
+            token: string;
+            token_prefix: string;
+            scopes: string[];
+            /** @enum {string} */
+            status: "active" | "expired" | "revoked";
+            /** Format: date-time */
+            expires_at: string;
+            /** Format: date-time */
+            created_at: string;
+        };
+        /** EntitlementBalance */
+        entitlement: {
+            /** @enum {string} */
+            module: "skin";
+            /** Format: date */
+            policy_date: string;
+            /** @constant */
+            timezone: "Asia/Shanghai";
+            granted: number;
+            consumed: number;
+            remaining: number;
+        };
+        /** CreditBalance */
+        "credit-balance": {
+            user_id: string;
+            balance: number;
+        };
+        /** EventEnvelope */
+        "event-envelope": {
+            event_id: string;
+            type: string;
+            /** Format: date-time */
+            occurred_at: string;
+            producer: string;
+            subject: string;
+            correlation_id?: string | null;
+            schema_version: number;
+            data: Record<string, never>;
+        };
+        /** EventPage */
+        "event-page": {
+            items: components["schemas"]["event-envelope"][];
+            /** @description Opaque delivery position after the last returned event. Null when no earlier unacknowledged events remain for this consumer. */
+            next_cursor: string | null;
+        };
+        /** EventAcknowledgment */
+        "event-acknowledgment": {
+            /** @description The acknowledged opaque delivery position. Every event up to and including this position is confirmed for the calling service consumer. */
+            cursor: string;
+        };
     };
-    /** @description The request conflicts with a recorded idempotent command or with the daily entitlement capacity. The code distinguishes the two cases. */
-    ConsumptionConflict: {
-      headers: {
-        [name: string]: unknown;
-      };
-      content: {
-        'application/problem+json': components['schemas']['problem'];
-      };
+    responses: {
+        /** @description Authentication is missing or the credential fails signature, issuer, audience, expiry, verified-email, or personal-access-token validation. */
+        AuthenticationRequired: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                /**
+                 * @example {
+                 *       "type": "/problems/authentication-required",
+                 *       "title": "Authentication required",
+                 *       "status": 401,
+                 *       "code": "AUTHENTICATION_REQUIRED",
+                 *       "trace_id": "01HZZZZZZZZZZZZZZZZZZZZZZZ"
+                 *     }
+                 */
+                "application/problem+json": components["schemas"]["problem"];
+            };
+        };
+        /** @description The credential lacks the required scope, the MC Plan business account cannot access this operation, or the caller's business role is not allowed. Account state is not disclosed. */
+        AccessForbidden: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["problem"];
+            };
+        };
+        /** @description The request body or parameters failed validation. */
+        ValidationFailed: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                /**
+                 * @example {
+                 *       "type": "/problems/validation-failed",
+                 *       "title": "Validation failed",
+                 *       "status": 400,
+                 *       "code": "VALIDATION_FAILED",
+                 *       "trace_id": "01HZZZZZZZZZZZZZZZZZZZZZZZ",
+                 *       "errors": [
+                 *         {
+                 *           "field": "redirect_uris",
+                 *           "code": "INVALID_REDIRECT_URI",
+                 *           "message": "Redirect URIs must be exact-match HTTPS or loopback development addresses."
+                 *         }
+                 *       ]
+                 *     }
+                 */
+                "application/problem+json": components["schemas"]["problem"];
+            };
+        };
+        /** @description The referenced resource does not exist or is not owned by the caller. */
+        NotFound: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                /**
+                 * @example {
+                 *       "type": "/problems/not-found",
+                 *       "title": "Not found",
+                 *       "status": 404,
+                 *       "code": "NOT_FOUND",
+                 *       "trace_id": "01HZZZZZZZZZZZZZZZZZZZZZZZ"
+                 *     }
+                 */
+                "application/problem+json": components["schemas"]["problem"];
+            };
+        };
+        /** @description The request conflicts with a recorded idempotent command or with the daily entitlement capacity. The code distinguishes the two cases. */
+        ConsumptionConflict: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["problem"];
+            };
+        };
+        /** @description Error response */
+        Problem: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/problem+json": components["schemas"]["problem"];
+            };
+        };
     };
-    /** @description Error response */
-    Problem: {
-      headers: {
-        [name: string]: unknown;
-      };
-      content: {
-        'application/problem+json': components['schemas']['problem'];
-      };
+    parameters: {
+        UserId: string;
+        AppId: string;
+        TokenId: string;
+        IdempotencyKey: string;
     };
-  };
-  parameters: {
-    UserId: string;
-    AppId: string;
-    TokenId: string;
-    IdempotencyKey: string;
-  };
-  requestBodies: never;
-  headers: never;
-  pathItems: never;
+    requestBodies: never;
+    headers: never;
+    pathItems: never;
 }
 export type $defs = Record<string, never>;
 export interface operations {
-  getCurrentUser: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Current user */
-      200: {
-        headers: {
-          [name: string]: unknown;
+    getCurrentUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
         };
-        content: {
-          'application/json': components['schemas']['actor'];
+        requestBody?: never;
+        responses: {
+            /** @description Current user */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["actor"];
+                };
+            };
+            401: components["responses"]["AuthenticationRequired"];
+            403: components["responses"]["AccessForbidden"];
+            default: components["responses"]["Problem"];
         };
-      };
-      401: components['responses']['AuthenticationRequired'];
-      403: components['responses']['AccessForbidden'];
-      default: components['responses']['Problem'];
     };
-  };
-  getPublicUser: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        userId: components['parameters']['UserId'];
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Public user */
-      200: {
-        headers: {
-          [name: string]: unknown;
+    getPublicUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                userId: components["parameters"]["UserId"];
+            };
+            cookie?: never;
         };
-        content: {
-          'application/json': components['schemas']['actor'];
+        requestBody?: never;
+        responses: {
+            /** @description Public user */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["actor"];
+                };
+            };
+            404: components["responses"]["Problem"];
+            default: components["responses"]["Problem"];
         };
-      };
-      404: components['responses']['Problem'];
-      default: components['responses']['Problem'];
     };
-  };
-  listDeveloperApps: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Developer applications owned by the current user */
-      200: {
-        headers: {
-          [name: string]: unknown;
+    listDeveloperApps: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
         };
-        content: {
-          'application/json': {
-            items: components['schemas']['developer-app'][];
-          };
+        requestBody?: never;
+        responses: {
+            /** @description Developer applications owned by the current user */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["developer-app"][];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationRequired"];
+            403: components["responses"]["AccessForbidden"];
+            default: components["responses"]["Problem"];
         };
-      };
-      401: components['responses']['AuthenticationRequired'];
-      403: components['responses']['AccessForbidden'];
-      default: components['responses']['Problem'];
     };
-  };
-  createDeveloperApp: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['CreateDeveloperAppRequest'];
-      };
-    };
-    responses: {
-      /** @description Developer application created */
-      201: {
-        headers: {
-          [name: string]: unknown;
+    createDeveloperApp: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
         };
-        content: {
-          'application/json': components['schemas']['developer-app-created'];
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateDeveloperAppRequest"];
+            };
         };
-      };
-      400: components['responses']['ValidationFailed'];
-      401: components['responses']['AuthenticationRequired'];
-      403: components['responses']['AccessForbidden'];
-      default: components['responses']['Problem'];
-    };
-  };
-  getDeveloperApp: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        appId: components['parameters']['AppId'];
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Developer application */
-      200: {
-        headers: {
-          [name: string]: unknown;
+        responses: {
+            /** @description Developer application created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["developer-app-created"];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["AuthenticationRequired"];
+            403: components["responses"]["AccessForbidden"];
+            default: components["responses"]["Problem"];
         };
-        content: {
-          'application/json': components['schemas']['developer-app'];
-        };
-      };
-      401: components['responses']['AuthenticationRequired'];
-      403: components['responses']['AccessForbidden'];
-      404: components['responses']['NotFound'];
-      default: components['responses']['Problem'];
     };
-  };
-  revokeDeveloperApp: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        appId: components['parameters']['AppId'];
-      };
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Revoked developer application */
-      200: {
-        headers: {
-          [name: string]: unknown;
+    getDeveloperApp: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                appId: components["parameters"]["AppId"];
+            };
+            cookie?: never;
         };
-        content: {
-          'application/json': components['schemas']['developer-app'];
+        requestBody?: never;
+        responses: {
+            /** @description Developer application */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["developer-app"];
+                };
+            };
+            401: components["responses"]["AuthenticationRequired"];
+            403: components["responses"]["AccessForbidden"];
+            404: components["responses"]["NotFound"];
+            default: components["responses"]["Problem"];
         };
-      };
-      401: components['responses']['AuthenticationRequired'];
-      403: components['responses']['AccessForbidden'];
-      404: components['responses']['NotFound'];
-      default: components['responses']['Problem'];
     };
-  };
-  approveDeveloperAppScopes: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        appId: components['parameters']['AppId'];
-      };
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['ApproveDeveloperAppScopesRequest'];
-      };
-    };
-    responses: {
-      /** @description Updated developer application */
-      200: {
-        headers: {
-          [name: string]: unknown;
+    revokeDeveloperApp: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                appId: components["parameters"]["AppId"];
+            };
+            cookie?: never;
         };
-        content: {
-          'application/json': components['schemas']['developer-app'];
+        requestBody?: never;
+        responses: {
+            /** @description Revoked developer application */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["developer-app"];
+                };
+            };
+            401: components["responses"]["AuthenticationRequired"];
+            403: components["responses"]["AccessForbidden"];
+            404: components["responses"]["NotFound"];
+            default: components["responses"]["Problem"];
         };
-      };
-      400: components['responses']['ValidationFailed'];
-      401: components['responses']['AuthenticationRequired'];
-      403: components['responses']['AccessForbidden'];
-      404: components['responses']['NotFound'];
-      default: components['responses']['Problem'];
     };
-  };
-  listPersonalAccessTokens: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    approveDeveloperAppScopes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                appId: components["parameters"]["AppId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ApproveDeveloperAppScopesRequest"];
+            };
+        };
+        responses: {
+            /** @description Updated developer application */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["developer-app"];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["AuthenticationRequired"];
+            403: components["responses"]["AccessForbidden"];
+            404: components["responses"]["NotFound"];
+            default: components["responses"]["Problem"];
+        };
     };
-    requestBody?: never;
-    responses: {
-      /** @description Personal access token metadata */
-      200: {
-        headers: {
-          [name: string]: unknown;
+    listPersonalAccessTokens: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
         };
-        content: {
-          'application/json': {
-            items: components['schemas']['personal-access-token'][];
-          };
+        requestBody?: never;
+        responses: {
+            /** @description Personal access token metadata */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["personal-access-token"][];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationRequired"];
+            403: components["responses"]["AccessForbidden"];
+            default: components["responses"]["Problem"];
         };
-      };
-      401: components['responses']['AuthenticationRequired'];
-      403: components['responses']['AccessForbidden'];
-      default: components['responses']['Problem'];
     };
-  };
-  createPersonalAccessToken: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    createPersonalAccessToken: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreatePersonalAccessTokenRequest"];
+            };
+        };
+        responses: {
+            /** @description Personal access token created */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["personal-access-token-created"];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["AuthenticationRequired"];
+            403: components["responses"]["AccessForbidden"];
+            default: components["responses"]["Problem"];
+        };
     };
-    requestBody: {
-      content: {
-        'application/json': components['schemas']['CreatePersonalAccessTokenRequest'];
-      };
+    revokePersonalAccessToken: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tokenId: components["parameters"]["TokenId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Revoked personal access token metadata */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["personal-access-token"];
+                };
+            };
+            401: components["responses"]["AuthenticationRequired"];
+            403: components["responses"]["AccessForbidden"];
+            404: components["responses"]["NotFound"];
+            default: components["responses"]["Problem"];
+        };
     };
-    responses: {
-      /** @description Personal access token created */
-      201: {
-        headers: {
-          [name: string]: unknown;
+    listCurrentEntitlements: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
         };
-        content: {
-          'application/json': components['schemas']['personal-access-token-created'];
+        requestBody?: never;
+        responses: {
+            /** @description Active entitlements */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["entitlement"][];
+                    };
+                };
+            };
+            401: components["responses"]["AuthenticationRequired"];
+            403: components["responses"]["AccessForbidden"];
+            default: components["responses"]["Problem"];
         };
-      };
-      400: components['responses']['ValidationFailed'];
-      401: components['responses']['AuthenticationRequired'];
-      403: components['responses']['AccessForbidden'];
-      default: components['responses']['Problem'];
     };
-  };
-  revokePersonalAccessToken: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path: {
-        tokenId: components['parameters']['TokenId'];
-      };
-      cookie?: never;
+    getCreditBalance: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Credit balance */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["credit-balance"];
+                };
+            };
+            401: components["responses"]["AuthenticationRequired"];
+            403: components["responses"]["AccessForbidden"];
+            default: components["responses"]["Problem"];
+        };
     };
-    requestBody?: never;
-    responses: {
-      /** @description Revoked personal access token metadata */
-      200: {
-        headers: {
-          [name: string]: unknown;
+    consumeCredits: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
         };
-        content: {
-          'application/json': components['schemas']['personal-access-token'];
+        requestBody: {
+            content: {
+                "application/json": {
+                    user_id: string;
+                    /** @enum {string} */
+                    module: "skin";
+                    /** @enum {string} */
+                    operation: "creation_session";
+                    units: number;
+                    reference_id: string;
+                };
+            };
         };
-      };
-      401: components['responses']['AuthenticationRequired'];
-      403: components['responses']['AccessForbidden'];
-      404: components['responses']['NotFound'];
-      default: components['responses']['Problem'];
+        responses: {
+            /** @description Existing idempotent consumption result */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsumptionResult"];
+                };
+            };
+            /** @description Daily entitlement consumed */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsumptionResult"];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["AuthenticationRequired"];
+            403: components["responses"]["AccessForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["ConsumptionConflict"];
+            default: components["responses"]["Problem"];
+        };
     };
-  };
-  listCurrentEntitlements: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
+    listDeliveredEvents: {
+        parameters: {
+            query?: {
+                /** @description Maximum number of events returned per pull. */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Oldest unacknowledged events for this consumer */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["event-page"];
+                };
+            };
+            401: components["responses"]["AuthenticationRequired"];
+            403: components["responses"]["AccessForbidden"];
+            default: components["responses"]["Problem"];
+        };
     };
-    requestBody?: never;
-    responses: {
-      /** @description Active entitlements */
-      200: {
-        headers: {
-          [name: string]: unknown;
+    acknowledgeEvents: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
         };
-        content: {
-          'application/json': {
-            items: components['schemas']['entitlement'][];
-          };
+        requestBody: {
+            content: {
+                "application/json": {
+                    cursor: string;
+                };
+            };
         };
-      };
-      401: components['responses']['AuthenticationRequired'];
-      403: components['responses']['AccessForbidden'];
-      default: components['responses']['Problem'];
+        responses: {
+            /** @description Acknowledged delivery position for this consumer */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["event-acknowledgment"];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["AuthenticationRequired"];
+            403: components["responses"]["AccessForbidden"];
+            default: components["responses"]["Problem"];
+        };
     };
-  };
-  getCreditBalance: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Credit balance */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['credit-balance'];
-        };
-      };
-      401: components['responses']['AuthenticationRequired'];
-      403: components['responses']['AccessForbidden'];
-      default: components['responses']['Problem'];
-    };
-  };
-  consumeCredits: {
-    parameters: {
-      query?: never;
-      header: {
-        'Idempotency-Key': components['parameters']['IdempotencyKey'];
-      };
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': {
-          user_id: string;
-          /** @enum {string} */
-          module: 'skin';
-          /** @enum {string} */
-          operation: 'creation_session';
-          units: number;
-          reference_id: string;
-        };
-      };
-    };
-    responses: {
-      /** @description Existing idempotent consumption result */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ConsumptionResult'];
-        };
-      };
-      /** @description Daily entitlement consumed */
-      201: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/json': components['schemas']['ConsumptionResult'];
-        };
-      };
-      400: components['responses']['ValidationFailed'];
-      401: components['responses']['AuthenticationRequired'];
-      403: components['responses']['AccessForbidden'];
-      404: components['responses']['NotFound'];
-      409: components['responses']['ConsumptionConflict'];
-      default: components['responses']['Problem'];
-    };
-  };
 }

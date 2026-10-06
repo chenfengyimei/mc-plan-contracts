@@ -33,8 +33,10 @@ describe('supported contract manifest', () => {
       'getCreditBalance',
     ]);
     expect(SUPPORTED_OPERATIONS).not.toContain('getPublicUser');
-    expect(SUPPORTED_CONTRACT_VERSION).toBe('0.1.0-alpha.4');
-    expect(SUPPORTED_CONTRACT_LOCK_COMMIT).toBe('9a85b989a87dc9e809f956770ebd7a60e1c8e664');
+    expect(SUPPORTED_OPERATIONS).not.toContain('listDeliveredEvents');
+    expect(SUPPORTED_OPERATIONS).not.toContain('acknowledgeEvents');
+    expect(SUPPORTED_CONTRACT_VERSION).toBe('0.1.0-alpha.5');
+    expect(SUPPORTED_CONTRACT_LOCK_COMMIT).toBe('5ba7172427f719eca2af44a0ef5d43b9871551e5');
   });
 
   it('matches the sha256 of every contract file consumed by generation', async () => {

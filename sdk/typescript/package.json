@@ -1,8 +1,8 @@
 {
   "name": "@mc-plan/core-sdk",
-  "version": "0.1.0-alpha.4",
+  "version": "0.1.0-alpha.5",
   "private": true,
-  "description": "Producer-verified TypeScript client for the MC Plan Core public API 0.1.0-alpha.4. Generated from the locked contract files in this repository; not published to any registry.",
+  "description": "Producer-verified TypeScript client for the MC Plan Core public API 0.1.0-alpha.5. Generated from the locked contract files in this repository; not published to any registry.",
   "license": "Apache-2.0",
   "type": "module",
   "engines": {

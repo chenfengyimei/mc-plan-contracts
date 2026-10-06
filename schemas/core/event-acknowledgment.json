@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.mc-plan.example/core/event-acknowledgment.v1.json",
+  "title": "EventAcknowledgment",
+  "type": "object",
+  "required": ["cursor"],
+  "properties": {
+    "cursor": {
+      "type": "string",
+      "minLength": 1,
+      "description": "The acknowledged opaque delivery position. Every event up to and including this position is confirmed for the calling service consumer."
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.mc-plan.example/core/event-page.v1.json",
+  "title": "EventPage",
+  "type": "object",
+  "required": ["items", "next_cursor"],
+  "properties": {
+    "items": {
+      "type": "array",
+      "items": {
+        "$ref": "../common/event-envelope.json"
+      }
+    },
+    "next_cursor": {
+      "type": ["string", "null"],
+      "description": "Opaque delivery position after the last returned event. Null when no earlier unacknowledged events remain for this consumer."
+    }
+  },
+  "additionalProperties": false
+}

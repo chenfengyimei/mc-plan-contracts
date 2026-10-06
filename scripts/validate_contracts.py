@@ -142,6 +142,9 @@ CORE_PRERELEASE_SECURITY = {
     ],
     # Consume is service-to-service only and never treats a service token as a user login.
     ("/v1/credits/consume", "post"): [{"serviceOAuth": ["credits:consume"]}],
+    # Consumer-pull event delivery (ADR-0011) is service-to-service only.
+    ("/v1/events", "get"): [{"serviceOAuth": ["events:consume"]}],
+    ("/v1/events/acknowledgments", "post"): [{"serviceOAuth": ["events:consume"]}],
 }
 
 PAT_GRANTABLE_SCOPES = {
@@ -156,8 +159,8 @@ PAT_GRANTABLE_SCOPES = {
 
 def validate_core_prerelease(document: dict[str, Any]) -> None:
     version = document.get("info", {}).get("version")
-    if version != "0.1.0-alpha.4":
-        raise ValueError("core.yaml must lock the credit balance slice as 0.1.0-alpha.4")
+    if version != "0.1.0-alpha.5":
+        raise ValueError("core.yaml must lock the consumer-pull event delivery slice as 0.1.0-alpha.5")
 
     operation = document.get("paths", {}).get("/v1/me", {}).get("get", {})
     if operation.get("operationId") != "getCurrentUser":
@@ -430,6 +433,127 @@ def validate_core_prerelease(document: dict[str, Any]) -> None:
     ):
         raise ValueError("core.yaml GET /v1/entitlements must return locked entitlement items")
 
+    # --- Consumer-pull event delivery slice (0.1.0-alpha.5, ADR-0011) -----
+    service_flow_scopes = set()
+    schemes = document.get("components", {}).get("securitySchemes", {})
+    for flow in schemes.get("serviceOAuth", {}).get("flows", {}).values():
+        service_flow_scopes.update(flow.get("scopes", {}).keys())
+    if "events:consume" not in service_flow_scopes:
+        raise ValueError("core.yaml serviceOAuth must declare the events:consume scope")
+    for scheme_name in ("userOAuth", "personalAccessToken"):
+        scheme_scopes: set[str] = set()
+        for flow in schemes.get(scheme_name, {}).get("flows", {}).values():
+            scheme_scopes.update(flow.get("scopes", {}).keys())
+        if "events:consume" in scheme_scopes:
+            raise ValueError(f"core.yaml {scheme_name} must never declare the service-only events:consume scope")
+    if "events:consume" in PAT_GRANTABLE_SCOPES:
+        raise ValueError("events:consume must never be personal-access-token grantable")
+
+    events_path = document.get("paths", {}).get("/v1/events", {})
+    if set(key for key in events_path if isinstance(key, str) and key.lower() in HTTP_METHODS) != {"get"}:
+        raise ValueError("core.yaml /v1/events must stay a read-only GET surface with no other methods")
+    events_get = events_path.get("get", {})
+    if events_get.get("operationId") != "listDeliveredEvents":
+        raise ValueError("core.yaml GET /v1/events must keep operationId listDeliveredEvents")
+    if events_get.get("x-mc-plan-stability") != "prerelease":
+        raise ValueError("core.yaml GET /v1/events must be marked prerelease")
+    if (
+        events_get.get("responses", {})
+        .get("200", {})
+        .get("content", {})
+        .get("application/json", {})
+        .get("schema", {})
+        .get("$ref")
+        != "../schemas/core/event-page.json"
+    ):
+        raise ValueError("core.yaml GET /v1/events 200 must use the locked EventPage schema")
+    if (
+        events_get.get("responses", {}).get("401", {}).get("$ref")
+        != "#/components/responses/AuthenticationRequired"
+    ):
+        raise ValueError("core.yaml GET /v1/events must keep the locked 401 problem")
+    if (
+        events_get.get("responses", {}).get("403", {}).get("$ref")
+        != "#/components/responses/AccessForbidden"
+    ):
+        raise ValueError("core.yaml GET /v1/events must keep the locked 403 problem")
+    if "404" in events_get.get("responses", {}):
+        raise ValueError("core.yaml GET /v1/events must not invent a 404")
+    limit_schema = {}
+    for parameter in events_get.get("parameters", []):
+        if parameter.get("name") == "limit":
+            limit_schema = parameter.get("schema", {})
+    if limit_schema.get("minimum") != 1 or limit_schema.get("maximum") != 200:
+        raise ValueError("core.yaml GET /v1/events limit must stay bounded to 1..200")
+
+    ack_path = document.get("paths", {}).get("/v1/events/acknowledgments", {})
+    if set(key for key in ack_path if isinstance(key, str) and key.lower() in HTTP_METHODS) != {"post"}:
+        raise ValueError("core.yaml /v1/events/acknowledgments must stay a POST-only surface")
+    ack_post = ack_path.get("post", {})
+    if ack_post.get("operationId") != "acknowledgeEvents":
+        raise ValueError("core.yaml POST /v1/events/acknowledgments must keep operationId acknowledgeEvents")
+    if ack_post.get("x-mc-plan-stability") != "prerelease":
+        raise ValueError("core.yaml POST /v1/events/acknowledgments must be marked prerelease")
+    ack_request = (
+        ack_post.get("requestBody", {})
+        .get("content", {})
+        .get("application/json", {})
+        .get("schema", {})
+    )
+    if ack_request.get("required") != ["cursor"] or ack_request.get("additionalProperties") is not False:
+        raise ValueError("core.yaml acknowledgeEvents request must require only a cursor field")
+    ack_cursor = ack_request.get("properties", {}).get("cursor", {})
+    if ack_cursor.get("minLength") != 1 or ack_cursor.get("maxLength") != 512:
+        raise ValueError("core.yaml acknowledgeEvents cursor must stay a bounded non-empty string")
+    if (
+        ack_post.get("responses", {})
+        .get("200", {})
+        .get("content", {})
+        .get("application/json", {})
+        .get("schema", {})
+        .get("$ref")
+        != "../schemas/core/event-acknowledgment.json"
+    ):
+        raise ValueError("core.yaml acknowledgeEvents 200 must use the locked EventAcknowledgment schema")
+    if (
+        ack_post.get("responses", {}).get("400", {}).get("$ref")
+        != "#/components/responses/ValidationFailed"
+    ):
+        raise ValueError("core.yaml acknowledgeEvents must keep the locked 400 validation problem")
+    if (
+        ack_post.get("responses", {}).get("401", {}).get("$ref")
+        != "#/components/responses/AuthenticationRequired"
+        or ack_post.get("responses", {}).get("403", {}).get("$ref")
+        != "#/components/responses/AccessForbidden"
+    ):
+        raise ValueError("core.yaml acknowledgeEvents must keep the locked 401/403 problems")
+
+    event_page = json.loads((ROOT / "schemas/core/event-page.json").read_text(encoding="utf-8"))
+    if set(event_page.get("properties", {})) != {"items", "next_cursor"}:
+        raise ValueError(f"EventPage exposes unexpected fields: {sorted(event_page.get('properties', {}))}")
+    if (
+        event_page.get("properties", {})
+        .get("items", {})
+        .get("items", {})
+        .get("$ref")
+        != "../common/event-envelope.json"
+    ):
+        raise ValueError("EventPage items must be the locked event envelope")
+    if event_page.get("required") != ["items", "next_cursor"]:
+        raise ValueError("EventPage must require items and next_cursor")
+    if event_page.get("additionalProperties") is not False:
+        raise ValueError("EventPage must reject unexpected fields")
+
+    event_ack = json.loads(
+        (ROOT / "schemas/core/event-acknowledgment.json").read_text(encoding="utf-8")
+    )
+    if set(event_ack.get("properties", {})) != {"cursor"}:
+        raise ValueError("EventAcknowledgment must expose only the cursor field")
+    if event_ack.get("properties", {}).get("cursor", {}).get("minLength") != 1:
+        raise ValueError("EventAcknowledgment cursor must be a non-empty string")
+    if event_ack.get("additionalProperties") is not False:
+        raise ValueError("EventAcknowledgment must reject unexpected fields")
+
     compatibility = (ROOT / "docs/compatibility.md").read_text(encoding="utf-8")
     if "Core `0.1.0-alpha.1`" not in compatibility or "预发布兼容收敛" not in compatibility:
         raise ValueError("docs/compatibility.md must classify Core 0.1.0-alpha.1")
@@ -443,6 +567,13 @@ def validate_core_prerelease(document: dict[str, Any]) -> None:
     ):
         raise ValueError(
             "docs/compatibility.md must classify Core 0.1.0-alpha.4 as a read-only compatible addition"
+        )
+    if (
+        "Core `0.1.0-alpha.5`" not in compatibility
+        or "预发布兼容新增（服务事件投递）" not in compatibility
+    ):
+        raise ValueError(
+            "docs/compatibility.md must classify Core 0.1.0-alpha.5 as a service event delivery addition"
         )
 
 

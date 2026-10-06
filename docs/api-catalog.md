@@ -2,7 +2,7 @@
 
 ## Core v1
 
-`0.1.0-alpha.4` 已锁定：`GET /v1/me`（`profile:read`，OIDC 或 PAT）、Developer App 生命周期（`developer-apps:read/manage`）、PAT 生命周期（`pat:read/manage`，PAT 默认最长 30 天）、`GET /v1/entitlements`（`credits:read`，OIDC 或 PAT，返回当日 Asia/Shanghai 权益视图且不消费额度）、`GET /v1/credits/balance`（`credits:read`，OIDC 或 PAT，返回非负整数余额；无账户的已存在 ACTIVE 用户读取为零且不建账户；严格只读，不产生账户、账本、审计或 outbox 副作用）与 `POST /v1/credits/consume`（服务间 `credits:consume`，Idempotency-Key 幂等，仅 `daily_entitlement` 来源，稳定返回 `IDEMPOTENCY_KEY_CONFLICT` 与 `ENTITLEMENT_EXHAUSTED`）。
+`0.1.0-alpha.5` 已锁定：`GET /v1/me`（`profile:read`，OIDC 或 PAT）、Developer App 生命周期（`developer-apps:read/manage`）、PAT 生命周期（`pat:read/manage`，PAT 默认最长 30 天）、`GET /v1/entitlements`（`credits:read`，OIDC 或 PAT，返回当日 Asia/Shanghai 权益视图且不消费额度）、`GET /v1/credits/balance`（`credits:read`，OIDC 或 PAT，返回非负整数余额；无账户的已存在 ACTIVE 用户读取为零且不建账户；严格只读，不产生账户、账本、审计或 outbox 副作用）、`POST /v1/credits/consume`（服务间 `credits:consume`，Idempotency-Key 幂等，仅 `daily_entitlement` 来源，稳定返回 `IDEMPOTENCY_KEY_CONFLICT` 与 `ENTITLEMENT_EXHAUSTED`），以及 ADR-0011 消费者拉取事件投递面：`GET /v1/events`（`listDeliveredEvents`，服务专用 `events:consume`，游标分页返回该消费者最旧未确认事件与 `next_cursor`，at-least-once，消费者按 `event_id` 幂等去重）与 `POST /v1/events/acknowledgments`（`acknowledgeEvents`，游标显式确认且幂等，未知/畸形游标 400）。事件投递面尚无生产者实现（预计 `MCP-F1-CORE-008`），SDK 不暴露其操作。
 
 仍为后续 F1 骨架：公开资料按 userId 读取、积分账本的公共消费（credits 来源消费）。
 

@@ -28,6 +28,12 @@
 
 发布顺序为 Contracts `0.1.0-alpha.4` → Core 生产者与契约测试 → 后续 TypeScript SDK 与消费者工作流（须等本生产者工作流关闭）。回退时生产者可回到仅实现 `0.1.0-alpha.3` 每日权益切片的状态；不得保留一个与本契约语义不一致的余额表面。
 
+## Core `0.1.0-alpha.5` 兼容分类
+
+本版本是在 `0.1.0-alpha.4` 之上的**预发布兼容新增（服务事件投递）**：按 Foundation ADR-0011（消费者拉取/HTTP，`MCP-F1-FOUNDATION-011`）新增 `GET /v1/events`（operationId `listDeliveredEvents`，serviceOAuth `events:consume` 专用，游标分页返回该服务消费者最旧的未确认事件与 `next_cursor`，at-least-once，消费者按信封 `event_id` 幂等去重）与 `POST /v1/events/acknowledgments`（operationId `acknowledgeEvents`，游标显式确认且幂等，未知/畸形游标 400 `VALIDATION_FAILED`），新增 `EventPage` 与 `EventAcknowledgment` JSON Schema（事件项复用锁定的事件信封，信封本身零修改）以及内联确认请求体（cursor 必填、1..512）。机器校验锁定：两操作 serviceOAuth 专用（userOAuth/PAT 一律不得声明或授予 `events:consume`）、`/v1/events` 仅 GET、limit 1..200、EventPage/EventAcknowledgment 字段集封闭、401/403 沿用既有语义、不新增公共错误码。`0.1.0-alpha.4` 已锁定的全部表面保持字节兼容。
+
+发布顺序为 Contracts `0.1.0-alpha.5` → Core 生产者与契约测试（预计 `MCP-F1-CORE-008`）→ 后续消费者工作流。回退时生产者可回到仅实现 `0.1.0-alpha.4` 的状态；不得保留一个与本契约语义不一致的事件投递表面。SDK 类型基线随 alpha.5 重生成，但 `listDeliveredEvents`/`acknowledgeEvents` 因尚无 producer 证据不在 SDK 支持操作清单中暴露。
+
 `MCP-F1-CORE-005` 已验证 Contracts 锁提交 `9a85b98` 与 Core `5508d60` 的组合：十二个锁定文件无漂移，十一项生产者契约测试涵盖原 alpha.2/alpha.3 表面回归、CreditBalance 只读响应、负余额/发明字段拒绝，以及按锁定 `events/credit.changed.v1.json`、event-envelope 与 credit-ledger-entry Schema 校验的内部事件记录；74 项单元、57 项 HTTP E2E 与 31 项隔离 PostgreSQL 集成验收通过，包括十二路不同键竞争扣减不透支、十二路同键只产生一条账本效果、失败命令稳定重放、并发/分次退款封顶与跨账户拒绝、ACTIVE ADMIN 人工调整、账本 UPDATE/DELETE 被数据库触发器拒绝、注入投影漂移被显式暴露、整数边界与既有每日权益回归。不代表 SDK、Community 或 Skin 已成为消费者。
 
 ## 发布顺序
@@ -43,6 +49,7 @@
 | Core `0.1.0-alpha.2` | 预发布；生产者已实现并验证 | `ce89a39`：契约测试通过（含 Developer App/PAT 表面与 alpha.1 表面回归） | 不适用 | 不适用 | 未生成 |
 | Core `0.1.0-alpha.3` | 预发布；每日权益生产者已实现并验证 | `8ba869a`：7 项契约、52 项 HTTP E2E、17 项 PostgreSQL 集成通过；锁提交 `fab1f3c` | 不适用 | 不适用 | 未生成 |
 | Core `0.1.0-alpha.4` | 预发布；只读余额与积分账本切片生产者已实现并验证 | `5508d60`：11 项契约、57 项 HTTP E2E、31 项 PostgreSQL 集成通过（含不可变账本并发/幂等/退款/权限/迁移与整数边界证据）；锁提交 `9a85b98` | 不适用 | 不适用 | `0.1.0-alpha.4`（`@mc-plan/core-sdk`，`MCP-F1-CONTRACTS-001`）：generate-check 零漂移、25 项单元、pack 干净工程消费、固定镜像 `5508d60` 真实 HTTP smoke 通过 |
+| Core `0.1.0-alpha.5` | 预发布；服务事件投递契约已锁，生产者未实现 | 未实现（预计 `MCP-F1-CORE-008`） | 不适用 | 不适用 | `0.1.0-alpha.5`（`@mc-plan/core-sdk`，`MCP-F1-CONTRACTS-002`）：类型基线重生成、支持操作仍为 12 个 producer 已验证操作（事件投递不暴露） |
 
 ## SDK 0.1.0-alpha.4 验收（MCP-F1-CONTRACTS-001，与 producer 验收分栏）
 

@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: MC Plan Core API
-  version: 0.1.0-alpha.4
+  version: 0.1.0-alpha.5
   description: >-
     Public business identity, profile, developer application, personal access
     token, entitlement, and credit surface. Keycloak remains the credential and
@@ -9,7 +9,10 @@ info:
     for automation and never exceed their creator's scopes. Service-to-service
     consumption uses client-credentials tokens with the credits:consume scope.
     The credit balance is exposed to its owning user strictly read-only and can
-    never mint credits or bypass authentication.
+    never mint credits or bypass authentication. Internal events are delivered
+    to authorized service consumers through the consumer-pull surface required
+    by ADR-0011: cursor-paginated pulls of the oldest unacknowledged events with
+    explicit, idempotent acknowledgments and at-least-once delivery.
   license:
     name: Apache License 2.0
     identifier: Apache-2.0
@@ -26,6 +29,8 @@ tags:
     description: Daily and campaign-based module entitlement operations.
   - name: Credits
     description: Audited global credit ledger consumption operations.
+  - name: Events
+    description: Consumer-pull delivery of internal events to authorized service consumers (ADR-0011).
 security:
   - userOAuth: []
 paths:
@@ -453,6 +458,97 @@ paths:
           $ref: "#/components/responses/ConsumptionConflict"
         default:
           $ref: "#/components/responses/Problem"
+  /v1/events:
+    get:
+      tags: [Events]
+      operationId: listDeliveredEvents
+      summary: Pull the oldest unacknowledged internal events for this consumer
+      description: >-
+        Consumer-pull event delivery required by ADR-0011. Returns the oldest
+        unacknowledged events for the authenticated service consumer in
+        publish order, bounded by the limit query parameter. Delivery is
+        at-least-once: the same events keep being returned until the consumer
+        acknowledges them, so consumers must deduplicate by the locked
+        envelope's event_id. The cursor in the response is an opaque delivery
+        position after the last returned event; passing it to the
+        acknowledgment operation confirms every event up to and including that
+        position for this consumer only. A fully caught-up consumer receives
+        an empty items array and a null next_cursor. This operation never
+        treats a service token as a user login and never exposes user-scheme
+        scopes.
+      x-mc-plan-stability: prerelease
+      security:
+        - serviceOAuth: [events:consume]
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          description: Maximum number of events returned per pull.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+      responses:
+        "200":
+          description: Oldest unacknowledged events for this consumer
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/core/event-page.json
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/AccessForbidden"
+        default:
+          $ref: "#/components/responses/Problem"
+  /v1/events/acknowledgments:
+    post:
+      tags: [Events]
+      operationId: acknowledgeEvents
+      summary: Acknowledge delivered events up to a cursor for this consumer
+      description: >-
+        Explicitly confirms that the service consumer has finished processing
+        every event up to and including the given cursor's delivery position.
+        The acknowledgment is idempotent: re-acknowledging an
+        already-acknowledged cursor is a no-op that returns the current
+        acknowledged position, and a cursor that is unknown, malformed, or not
+        issued to this consumer is rejected as a validation problem. Only
+        after an acknowledgment may the pull operation stop redelivering the
+        confirmed events; unacknowledged events remain redeliverable
+        (at-least-once). This operation advances only the calling consumer's
+        position and never exposes another consumer's state.
+      x-mc-plan-stability: prerelease
+      security:
+        - serviceOAuth: [events:consume]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [cursor]
+              properties:
+                cursor:
+                  type: string
+                  minLength: 1
+                  maxLength: 512
+              additionalProperties: false
+      responses:
+        "200":
+          description: Acknowledged delivery position for this consumer
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/core/event-acknowledgment.json
+        "400":
+          $ref: "#/components/responses/ValidationFailed"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/AccessForbidden"
+        default:
+          $ref: "#/components/responses/Problem"
 components:
   parameters:
     UserId:
@@ -706,3 +802,4 @@ components:
           tokenUrl: https://identity.example.invalid/token
           scopes:
             credits:consume: Consume credits for an authorized module operation
+            events:consume: Pull and acknowledge internal MC Plan events as an authorized service consumer (ADR-0011 consumer-pull delivery)

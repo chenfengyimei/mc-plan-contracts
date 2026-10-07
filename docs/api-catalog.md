@@ -16,6 +16,6 @@
 
 ## Skin v1
 
-已建立骨架：创作会话、候选渲染、确认成品、任务状态。
+`0.1.0-alpha.1` 已锁定（ADR-0012 匿名窗口语义）：既有四操作（创作会话、候选渲染、确认成品、任务状态）保持形状，新增 `GET /v1/conversations/{conversationId}`（会话详情含消息历史）、`DELETE /v1/conversations/{conversationId}`（级联候选与字节的会话删除）、`GET /v1/conversations/{conversationId}/candidates/{candidateId}/preview`（64x64 候选 PNG 字节）与 `GET /v1/conversations/{conversationId}/skins/{resourceId}/download`（成品 PNG 字节）。全部操作按 ADR-0012 匿名窗口语义：不可猜测 128-bit UUID 寻址、30d 会话/24h 候选保留期、无凭据对象模型（userOAuth 保留为 Official 模式文档性方案）；生产者实现属后续 Skin 线切片。
 
 后续 F3 决定：结构化意图字段、模型能力发现、候选反馈、Standalone 管理配置。提供商特有字段不能进入公共契约。

@@ -1,8 +1,16 @@
 openapi: 3.1.0
 info:
   title: MC Plan Skin API
-  version: 0.1.0-draft
-  description: Provider-neutral conversation, render, finalization, and job status skeleton for Official and Standalone deployments.
+  version: 0.1.0-alpha.1
+  description: >-
+    Provider-neutral conversation, render, finalization, and job status surface
+    for Official and Standalone deployments. Standalone deployments use the
+    ADR-0012 anonymous-window semantics: every resource is addressed by an
+    unguessable 128-bit identifier, conversations are retained for 30 days and
+    candidates (with failed artifacts) for 24 hours, and the conversation-level
+    delete operation cascades candidates and bytes. No credential object model
+    exists in Standalone; the userOAuth scheme below is retained as
+    documentation for future Official-mode deployments only (ADR-0012).
   license:
     name: Apache License 2.0
     identifier: Apache-2.0
@@ -13,8 +21,7 @@ tags:
     description: Skin creation sessions, render attempts, and finalization.
   - name: Jobs
     description: Asynchronous render and finalization job status.
-security:
-  - userOAuth: []
+security: []
 paths:
   /v1/conversations:
     post:
@@ -145,6 +152,106 @@ paths:
           $ref: "#/components/responses/Problem"
         default:
           $ref: "#/components/responses/Problem"
+  /v1/conversations/{conversationId}:
+    parameters:
+      - $ref: "#/components/parameters/ConversationId"
+    get:
+      tags: [Conversations]
+      operationId: getConversation
+      summary: Return conversation detail including the message history
+      description: >-
+        Returns the conversation with its message history (anonymous-window
+        semantics per ADR-0012: the conversation identifier is unguessable and
+        the conversation is retained for 30 days). Unknown, expired or deleted
+        conversations return 404 without revealing retention details.
+      responses:
+        "200":
+          description: Conversation detail with messages
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConversationDetail"
+        "404":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+    delete:
+      tags: [Conversations]
+      operationId: deleteConversation
+      summary: Delete the conversation and cascade its candidates and bytes
+      description: >-
+        Deletes the conversation together with its messages, candidates and
+        candidate bytes immediately (ahead of the 24h/30d retention sweep per
+        ADR-0012). Idempotent within the retention sweep: unknown, expired or
+        already-deleted conversations return 404.
+      responses:
+        "204":
+          description: Conversation deleted with all candidates and bytes
+        "404":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /v1/conversations/{conversationId}/candidates/{candidateId}/preview:
+    parameters:
+      - $ref: "#/components/parameters/ConversationId"
+      - name: candidateId
+        in: path
+        required: true
+        schema:
+          type: string
+          minLength: 1
+    get:
+      tags: [Conversations]
+      operationId: getCandidatePreview
+      summary: Return the 64x64 candidate preview bytes
+      description: >-
+        Returns the candidate PNG bytes for the given unguessable candidate
+        identifier. Candidates are retained for 24 hours and are removed by
+        the conversation-level delete; unknown, expired or deleted candidates
+        return 404 without distinguishing the reason.
+      responses:
+        "200":
+          description: Candidate preview PNG bytes
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+        "404":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
+  /v1/conversations/{conversationId}/skins/{resourceId}/download:
+    parameters:
+      - $ref: "#/components/parameters/ConversationId"
+      - name: resourceId
+        in: path
+        required: true
+        schema:
+          type: string
+          minLength: 1
+    get:
+      tags: [Conversations]
+      operationId: downloadSkin
+      summary: Return the finalized 64x64 skin download bytes
+      description: >-
+        Returns the finalized skin PNG bytes for the given unguessable resource
+        identifier (published by a succeeded finalize job). The download is
+        bounded by the conversation retention window and is removed by the
+        conversation-level delete; unknown, expired or deleted resources
+        return 404 without distinguishing the reason.
+      responses:
+        "200":
+          description: Finalized skin PNG bytes
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+        "404":
+          $ref: "#/components/responses/Problem"
+        default:
+          $ref: "#/components/responses/Problem"
 components:
   parameters:
     ConversationId:
@@ -163,6 +270,41 @@ components:
         minLength: 8
         maxLength: 200
   schemas:
+    ConversationDetail:
+      type: object
+      required: [conversation_id, status, attempts_used, attempts_limit, expires_at, messages]
+      properties:
+        conversation_id:
+          type: string
+        status:
+          type: string
+          enum: [active, finalizing, completed, expired, cancelled]
+        attempts_used:
+          type: integer
+          minimum: 0
+        attempts_limit:
+          type: integer
+          minimum: 1
+        expires_at:
+          type: string
+          format: date-time
+        messages:
+          type: array
+          items:
+            type: object
+            required: [role, content, created_at]
+            properties:
+              role:
+                type: string
+                enum: [user, assistant]
+              content:
+                type: string
+                minLength: 1
+              created_at:
+                type: string
+                format: date-time
+            additionalProperties: false
+      additionalProperties: false
     Conversation:
       type: object
       required: [conversation_id, status, attempts_used, attempts_limit, expires_at]

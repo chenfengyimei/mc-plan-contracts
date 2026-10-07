@@ -2,7 +2,7 @@
 
 阶段：F1 Core 契约 0.1.0-alpha.5 已锁定（服务事件投递面）；首个 TypeScript SDK 切片已交付
 
-版本：Core `0.1.0-alpha.5`；其他契约仍为 `0.1.0-draft`
+版本：Core `0.1.0-alpha.5`；Skin `0.1.0-alpha.1`（ADR-0012 匿名窗口）；Community 仍为 `0.1.0-draft`
 
 F0 状态：已完成（本地契约骨架；尚未发布远程）
 
@@ -17,5 +17,7 @@ F0 状态：已完成（本地契约骨架；尚未发布远程）
 历史基线：Core `0.1.0-alpha.4` 锁定只读积分余额表面（`GET /v1/credits/balance`，`credits:read`，OIDC 或 PAT；非负整数余额，无账户的已存在 ACTIVE 用户读取为零且不建账户，严格只读无副作用）。`MCP-F1-CORE-005` 的 Core `5508d60` 生产者已通过验收：12 个锁定文件无漂移，契约 11 项、HTTP E2E 57 项、隔离 PostgreSQL 集成 31 项通过；锁提交 `9a85b98`。`POST /v1/credits/consume` 仍仅 `daily_entitlement` 来源。
 
 `MCP-F1-CONTRACTS-001` 已交付首个经 producer 验证的 SDK：`sdk/typescript` 包 `@mc-plan/core-sdk@0.1.0-alpha.4`（private，仅本地 pack 消费，不发布 npm、不设稳定版本）。类型由 openapi-typescript 从仓库内锁定的 `openapi/core.yaml`（锁提交 `9a85b98`）确定性生成并内嵌 9 个来源文件 sha256 支持清单；仅暴露 12 个有 producer 证据的操作（getPublicUser 与未来积分公共消费/退款/管理不暴露）；注入式 baseURL/fetch/token 提供器、ProblemDetails 类型化、abort/超时、有界幂等重试不换键、200 重放/201 成功。验收：format/lint/严格 typecheck、generate:check 零漂移、25 项单元测试、build、pack 干净工程消费，以及对固定镜像 `mc-plan-core:mcp-f1-core-005-5508d60` + 隔离 PostgreSQL 的真实 HTTP smoke 全通过。
+
+`MCP-F1-CONTRACTS-003` 已按 Foundation ADR-0012（所有者 W10 方案 A，`MCP-F1-FOUNDATION-012`）锁定 Skin `0.1.0-alpha.1`：在既有四操作之上新增四个匿名操作（会话详情含消息历史、级联候选与字节的会话删除、64x64 候选 PNG 预览字节、成品 PNG 下载字节），顶层 `security: []`（Standalone 匿名窗口：不可猜测 128-bit UUID 寻址、30d 会话/24h 候选保留期），`userOAuth` 保留为 Official 模式文档性方案（redocly no-unused-components 警告为预期）。Skin 生产者实现属后续 Skin 线切片。
 
 下一门槛：事件投递面生产者实现（预计 `MCP-F1-CORE-008`）先于任何消费者集成；Skin/Community 消费者集成按契约 → SDK → 消费者顺序另开后续工作流；credits 来源消费与免费额度耗尽后的积分回退需先补契约并等 Q-013 价格决策；稳定契约/SDK 需至少一个真实消费者通过集成验收；不得把 SDK/producer 验收写成消费者已支持。

@@ -2,7 +2,7 @@
 
 状态：Active
 
-当前里程碑：F1 Core `0.1.0-alpha.5` 服务事件投递契约（ADR-0011 消费者拉取，`MCP-F1-CONTRACTS-002`）已锁定；`0.1.0-alpha.4` 积分只读余额预发布契约与不可变积分账本生产者（Core `5508d60`，`MCP-F1-CORE-005`）已验证；首个 TypeScript SDK 切片（`@mc-plan/core-sdk`，12 个已验收操作，`MCP-F1-CONTRACTS-001`）已实现并对固定镜像完成真实 HTTP 验收；事件投递面生产者（预计 `MCP-F1-CORE-008`）与消费者按后续工作流推进。
+当前里程碑：F1 Core `0.1.0-alpha.5` 服务事件投递契约（ADR-0011 消费者拉取，`MCP-F1-CONTRACTS-002`）已锁定；`0.1.0-alpha.4` 积分只读余额预发布契约与不可变积分账本生产者（Core `5508d60`，`MCP-F1-CORE-005`）已验证；首个 TypeScript SDK 切片（`@mc-plan/core-sdk`，12 个已验收操作，`MCP-F1-CONTRACTS-001`）已实现并对固定镜像完成真实 HTTP 验收；事件投递面生产者（预计 `MCP-F1-CORE-008`）与消费者按后续工作流推进；Skin `0.1.0-alpha.1`（ADR-0012 匿名窗口五缺口，`MCP-F1-CONTRACTS-003`）已锁定，Skin 产线生产者在 Q-001 决策后跟进。
 
 ## 固定顺序
 

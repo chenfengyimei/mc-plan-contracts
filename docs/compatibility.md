@@ -50,6 +50,7 @@
 | Core `0.1.0-alpha.3` | 预发布；每日权益生产者已实现并验证 | `8ba869a`：7 项契约、52 项 HTTP E2E、17 项 PostgreSQL 集成通过；锁提交 `fab1f3c` | 不适用 | 不适用 | 未生成 |
 | Core `0.1.0-alpha.4` | 预发布；只读余额与积分账本切片生产者已实现并验证 | `5508d60`：11 项契约、57 项 HTTP E2E、31 项 PostgreSQL 集成通过（含不可变账本并发/幂等/退款/权限/迁移与整数边界证据）；锁提交 `9a85b98` | 不适用 | 不适用 | `0.1.0-alpha.4`（`@mc-plan/core-sdk`，`MCP-F1-CONTRACTS-001`）：generate-check 零漂移、25 项单元、pack 干净工程消费、固定镜像 `5508d60` 真实 HTTP smoke 通过 |
 | Core `0.1.0-alpha.5` | 预发布；服务事件投递契约已锁，生产者未实现 | 未实现（预计 `MCP-F1-CORE-008`） | 不适用 | 不适用 | `0.1.0-alpha.5`（`@mc-plan/core-sdk`，`MCP-F1-CONTRACTS-002`）：类型基线重生成、支持操作仍为 12 个 producer 已验证操作（事件投递不暴露） |
+| Skin `0.1.0-alpha.1` | 预发布；匿名窗口五缺口契约已锁，生产者未实现（Skin 产线在 Q-001 决策后跟进） | 不适用 | 不适用 | 未实现（ADR-0012 匿名窗口语义，预计后续 Skin 线切片） | 未生成 |
 
 ## SDK 0.1.0-alpha.4 验收（MCP-F1-CONTRACTS-001，与 producer 验收分栏）
 
@@ -66,3 +67,9 @@ SDK 侧验收证据：`format:check`、`lint --max-warnings 0`、严格 `typeche
 `MCP-F1-CORE-002` 已验证 Contracts `f9ad077`、Core `30382fd` 与 Ops `666565b` 的组合：Core 锁定文件及 PublicActor Schema 契约测试通过，并由真实 Keycloak Authorization Code + PKCE S256 令牌完成 `/v1/me` 验收。该组合不代表 SDK、Community 或 Skin 已成为消费者。
 
 矩阵只记录已验证组合，不把“计划支持”写成已支持。
+
+## Skin `0.1.0-alpha.1` 兼容分类
+
+本版本是从未发布、未实现生产者的 `0.1.0-draft` 锁定首个 Skin 预发布切片，分类为**预发布兼容新增（匿名窗口语义）**：按 Foundation ADR-0012（所有者 2026-10-07 W10 方案 A）在既有四操作（createConversation/createRender/finalizeSkin/getJob，形状不变）之上新增四个匿名操作——`GET /v1/conversations/{conversationId}`（会话详情含消息历史）、`DELETE /v1/conversations/{conversationId}`（级联候选与字节的会话删除，204）、`GET /v1/conversations/{conversationId}/candidates/{candidateId}/preview` 与 `GET /v1/conversations/{conversationId}/skins/{resourceId}/download`（PNG 字节）。机器可校验规则：顶层 `security: []`（Standalone 匿名窗口），`userOAuth` 保留为 Official 模式文档性方案（不被任何操作引用属预期），每操作显式 404，全部路径 `/v1/` 前缀与唯一 operationId。生产者实现属后续 Skin 线切片（SKIN-008 产线在 Q-001 决策后跟进）。
+
+发布顺序为 Contracts `0.1.0-alpha.1` → Skin 生产者实现与契约测试 → 后续消费者工作流。回退时 Skin 生产者可回到仅实现四操作草案面的状态；不得保留一个与本契约匿名窗口语义不一致的预览/下载/删除表面。

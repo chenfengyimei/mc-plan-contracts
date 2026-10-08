@@ -2,33 +2,33 @@
  * Explicit supported-operation manifest for the Core SDK.
  *
  * The SDK only exposes operations whose contract semantics are locked in
- * `openapi/core.yaml` at 0.1.0-alpha.5 AND whose producer has passed
+ * `openapi/core.yaml` at 0.1.0-alpha.6 AND whose producer has passed
  * contract, HTTP E2E and real-PostgreSQL integration acceptance. The first
- * twelve operations were producer-verified by MCP-F1-CORE-005 and the two
- * consumer-pull event operations (listDeliveredEvents, acknowledgeEvents)
- * by MCP-F1-CORE-008, whose final tree re-ran the full gate suite for all
- * fourteen operations (see SUPPORTED_PRODUCER_COMMIT). Operations without
- * producer evidence (for example getPublicUser) must not gain callable
- * client methods, and future surfaces must not be pre-invented here.
+ * twelve operations were producer-verified by MCP-F1-CORE-005, the two
+ * consumer-pull event operations by MCP-F1-CORE-008, and the alpha.6
+ * additions (getPublicUser, updateCurrentUser) are locked but carry no
+ * producer evidence yet, so they must not gain callable client methods
+ * until the producing slice closes. Future surfaces must not be
+ * pre-invented here.
  */
 
 /** Contract prerelease version the generated types and transport are built from. */
-export const SUPPORTED_CONTRACT_VERSION = '0.1.0-alpha.5' as const;
+export const SUPPORTED_CONTRACT_VERSION = '0.1.0-alpha.6' as const;
 
-/** Contracts commit that locked the 0.1.0-alpha.5 surface (verify against docs/compatibility.md). */
-export const SUPPORTED_CONTRACT_LOCK_COMMIT = '5ba7172427f719eca2af44a0ef5d43b9871551e5' as const;
+/** Contracts commit that locked the 0.1.0-alpha.6 surface (verify against docs/compatibility.md). */
+export const SUPPORTED_CONTRACT_LOCK_COMMIT = '6b80c4cf78053fb953452f50cb08c15272176759' as const;
 
 /** Producer commit of mc-plan-core verified against the supported operations. */
 export const SUPPORTED_PRODUCER_COMMIT = '87ddd66f24a9044ebcebd2d4043511fd5796029d' as const;
 
 /**
  * sha256 of every contract file consumed by the type generation, relative to
- * the mc-plan-contracts repository root. Mirrors the 0.1.0-alpha.5 lock
+ * the mc-plan-contracts repository root. Mirrors the 0.1.0-alpha.6 lock
  * manifest; tests recompute these at run time so any contract edit that is
  * not regenerated fails `generate:check` and `test`.
  */
 export const SUPPORTED_CONTRACT_FILES = {
-  'openapi/core.yaml': '3206cc4309c3c54648925f5cd8d951676829f2bb0f3fe3bbd8fd1db52d8af1f6',
+  'openapi/core.yaml': 'e45f258a91487ac046b8516436b6dab0e7dffeb5c1646491c15b5685505a71a1',
   'schemas/common/actor.json': 'f1b371a741eb374f7bf8364398669a42a3b5e0031679af532320a10b17a04432',
   'schemas/common/problem.json': '80d6abfca67ccac9e22d83542134755c6126cae2696afbaa4c85efaceec4ba11',
   'schemas/common/event-envelope.json':
@@ -53,7 +53,7 @@ export const SUPPORTED_CONTRACT_FILES = {
 
 export type SupportedContractFile = keyof typeof SUPPORTED_CONTRACT_FILES;
 
-/** The only operationIds this SDK exposes. getPublicUser is intentionally absent. */
+/** The only operationIds this SDK exposes. getPublicUser/updateCurrentUser are intentionally absent (no producer evidence yet). */
 export const SUPPORTED_OPERATIONS = [
   'getCurrentUser',
   'createDeveloperApp',

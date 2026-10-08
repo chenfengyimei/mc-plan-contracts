@@ -36,8 +36,9 @@ describe('supported contract manifest', () => {
       'acknowledgeEvents',
     ]);
     expect(SUPPORTED_OPERATIONS).not.toContain('getPublicUser');
-    expect(SUPPORTED_CONTRACT_VERSION).toBe('0.1.0-alpha.5');
-    expect(SUPPORTED_CONTRACT_LOCK_COMMIT).toBe('5ba7172427f719eca2af44a0ef5d43b9871551e5');
+    expect(SUPPORTED_OPERATIONS).not.toContain('updateCurrentUser');
+    expect(SUPPORTED_CONTRACT_VERSION).toBe('0.1.0-alpha.6');
+    expect(SUPPORTED_CONTRACT_LOCK_COMMIT).toBe('6b80c4cf78053fb953452f50cb08c15272176759');
     // Producer evidence for the two event operations comes from the closed
     // MCP-F1-CORE-008 slice whose final tree re-ran every gate.
     expect(SUPPORTED_PRODUCER_COMMIT).toBe('87ddd66f24a9044ebcebd2d4043511fd5796029d');

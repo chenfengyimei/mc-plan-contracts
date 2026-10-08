@@ -1,8 +1,8 @@
 # 状态
 
-阶段：F1 Core 契约 0.1.0-alpha.5 已锁定且事件投递面生产者已验收；TypeScript SDK 已覆盖 14 个 producer 已验证操作
+阶段：F1 Core 契约 0.1.0-alpha.6 已锁定（事件投递面生产者已验收；公开资料表面生产者实现中 `MCP-F1-CORE-009`）；TypeScript SDK 已覆盖 14 个 producer 已验证操作
 
-版本：Core `0.1.0-alpha.5`；Skin `0.1.0-alpha.1`（ADR-0012 匿名窗口）；Community 仍为 `0.1.0-draft`
+版本：Core `0.1.0-alpha.6`（W02 第一阶段公开资料 + 资料名编辑，`MCP-F1-CORE-009` 契约侧锁提交 `6b80c4c`，生产者实现中）；Skin `0.1.0-alpha.1`（ADR-0012 匿名窗口）；Community 仍为 `0.1.0-draft`
 
 F0 状态：已完成（本地契约骨架；尚未发布远程）
 

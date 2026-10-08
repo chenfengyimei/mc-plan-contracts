@@ -21,7 +21,11 @@ export interface paths {
         delete?: never;
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Edit the current user's public profile display name
+         * @description Updates the calling user's public profile display name. The only editable field in this prerelease is display_name; the request must not carry any other field. Personal access tokens can never obtain the profile:write scope, so edits always require an OIDC user token. The response returns the updated public actor exactly as GET /v1/me does.
+         */
+        patch: operations["updateCurrentUser"];
         trace?: never;
     };
     "/v1/users/{userId}": {
@@ -33,7 +37,10 @@ export interface paths {
             };
             cookie?: never;
         };
-        /** Return a public creator profile */
+        /**
+         * Return a public creator profile
+         * @description Returns the public actor of one MC Plan user by id without authentication. Only ACTIVE business accounts are publicly addressable: unknown, malformed and non-ACTIVE identifiers all respond 404 without revealing whether the account exists or what state it is in. The response never includes identity emails, OIDC subjects, issuer claims or verification state.
+         */
         get: operations["getPublicUser"];
         put?: never;
         post?: never;
@@ -531,6 +538,36 @@ export interface operations {
                     "application/json": components["schemas"]["actor"];
                 };
             };
+            401: components["responses"]["AuthenticationRequired"];
+            403: components["responses"]["AccessForbidden"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    updateCurrentUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    display_name: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Updated public profile */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["actor"];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
             401: components["responses"]["AuthenticationRequired"];
             403: components["responses"]["AccessForbidden"];
             default: components["responses"]["Problem"];

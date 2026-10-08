@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: MC Plan Core API
-  version: 0.1.0-alpha.6
+  version: 0.1.0-alpha.7
   description: >-
     Public business identity, profile, developer application, personal access
     token, entitlement, and credit surface. Keycloak remains the credential and
@@ -16,6 +16,10 @@ info:
     Public creator profiles are readable by user id for ACTIVE accounts
     only, and the owning user can edit the public display name with the
     profile:write scope; personal access tokens can never obtain that scope.
+    The owning user can also close their own account locally with the same
+    scope: the account stops being publicly addressable immediately and
+    every authenticated face afterwards answers the locked 403
+    ACCOUNT_UNAVAILABLE problem, while Keycloak credentials stay untouched.
   license:
     name: Apache License 2.0
     identifier: Apache-2.0
@@ -101,6 +105,33 @@ paths:
                 $ref: ../schemas/common/actor.json
         "400":
           $ref: "#/components/responses/ValidationFailed"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/AccessForbidden"
+        default:
+          $ref: "#/components/responses/Problem"
+    post:
+      tags: [Profile]
+      operationId: deactivateCurrentUser
+      summary: Deactivate (close) the current user's own account
+      description: >-
+        Closes the calling user's business account locally (W02-b; owner
+        decision 2026-10-08 keeps Keycloak untouched): the account status
+        becomes CLOSED with an audit record in the same transaction and the
+        response carries no body. Only ACTIVE business accounts resolve a
+        principal, so every authenticated face afterwards - including a
+        repeated deactivation call with the same token - answers the locked
+        403 ACCOUNT_UNAVAILABLE problem, and the public profile read returns
+        404 through the locked ACTIVE-only semantics. Entitlement and credit
+        state is left untouched by this prerelease surface and there is no
+        account reactivation path in this prerelease.
+      x-mc-plan-stability: prerelease
+      security:
+        - userOAuth: [profile:write]
+      responses:
+        "204":
+          description: Account deactivated
         "401":
           $ref: "#/components/responses/AuthenticationRequired"
         "403":

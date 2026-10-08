@@ -159,8 +159,8 @@ PAT_GRANTABLE_SCOPES = {
 
 def validate_core_prerelease(document: dict[str, Any]) -> None:
     version = document.get("info", {}).get("version")
-    if version != "0.1.0-alpha.6":
-        raise ValueError("core.yaml must lock the consumer-pull event delivery slice as 0.1.0-alpha.5")
+    if version != "0.1.0-alpha.7":
+        raise ValueError("core.yaml must lock the W02-b deactivation rights slice as 0.1.0-alpha.7")
 
     operation = document.get("paths", {}).get("/v1/me", {}).get("get", {})
     if operation.get("operationId") != "getCurrentUser":
@@ -630,6 +630,34 @@ def validate_core_prerelease(document: dict[str, Any]) -> None:
         if me_patch.get("responses", {}).get(status, {}).get("$ref") != ref:
             raise ValueError(f"core.yaml PATCH /v1/me must keep the locked {status} problem")
 
+    # --- W02-b deactivation rights slice (0.1.0-alpha.7) ------------------
+    me_post = me_path.get("post", {})
+    if me_post.get("operationId") != "deactivateCurrentUser":
+        raise ValueError("core.yaml POST /v1/me/deactivation must use operationId deactivateCurrentUser")
+    if me_post.get("x-mc-plan-stability") != "prerelease":
+        raise ValueError("core.yaml deactivateCurrentUser must be marked prerelease")
+    if me_post.get("security") != [{"userOAuth": ["profile:write"]}]:
+        raise ValueError(
+            "core.yaml deactivateCurrentUser must require exactly profile:write on the "
+            "interactive userOAuth scheme only"
+        )
+    if "requestBody" in me_post:
+        raise ValueError("core.yaml deactivateCurrentUser must not accept a request body")
+    deactivation_responses = me_post.get("responses", {})
+    if set(deactivation_responses) != {"204", "401", "403", "default"}:
+        raise ValueError(
+            "core.yaml deactivateCurrentUser responses must be exactly 204/401/403/default: "
+            f"{sorted(deactivation_responses)}"
+        )
+    if "content" in deactivation_responses.get("204", {}):
+        raise ValueError("core.yaml deactivateCurrentUser 204 must carry no response body")
+    for status, ref in (
+        ("401", "#/components/responses/AuthenticationRequired"),
+        ("403", "#/components/responses/AccessForbidden"),
+    ):
+        if deactivation_responses.get(status, {}).get("$ref") != ref:
+            raise ValueError(f"core.yaml deactivateCurrentUser must keep the locked {status} problem")
+
     compatibility = (ROOT / "docs/compatibility.md").read_text(encoding="utf-8")
     if "Core `0.1.0-alpha.1`" not in compatibility or "预发布兼容收敛" not in compatibility:
         raise ValueError("docs/compatibility.md must classify Core 0.1.0-alpha.1")
@@ -657,6 +685,13 @@ def validate_core_prerelease(document: dict[str, Any]) -> None:
     ):
         raise ValueError(
             "docs/compatibility.md must classify Core 0.1.0-alpha.6 as a public profile addition"
+        )
+    if (
+        "Core `0.1.0-alpha.7`" not in compatibility
+        or "预发布兼容新增（注销权利端点）" not in compatibility
+    ):
+        raise ValueError(
+            "docs/compatibility.md must classify Core 0.1.0-alpha.7 as a deactivation rights addition"
         )
 
 

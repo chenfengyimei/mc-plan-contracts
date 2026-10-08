@@ -262,3 +262,117 @@ describe('McPlanCoreClient surface', () => {
     expect(() => new McPlanCoreClient({ baseUrl: 'ftp://example.invalid' })).toThrow(TypeError);
   });
 });
+
+const eventEnvelope = {
+  correlation_id: null,
+  data: { entry_id: 'entry_1' },
+  event_id: 'evt_1',
+  occurred_at: '2026-10-08T00:00:00.000Z',
+  producer: 'mc-plan-core',
+  schema_version: 1,
+  subject: 'usr_1',
+  type: 'credit.changed.v1',
+};
+const eventPageBody = JSON.stringify({ items: [eventEnvelope], next_cursor: 'mcp-evc1-cursor' });
+const acknowledgmentBody = JSON.stringify({ cursor: 'mcp-evc1-cursor' });
+
+describe('McPlanCoreClient events surface (service-only consumer pull)', () => {
+  it('sends the service token to GET /v1/events and types the EventPage', async () => {
+    const api = await startApi((request) => {
+      if (request.url.startsWith('/v1/events') && request.method === 'GET') {
+        return { status: 200, body: eventPageBody };
+      }
+      return { status: 404, body: '{}' };
+    });
+    cleanup = api.server;
+    const page = await makeClient(api.baseUrl).listDeliveredEvents();
+    expect(page.items).toHaveLength(1);
+    expect(page.items[0]).toEqual(eventEnvelope);
+    expect(page.next_cursor).toBe('mcp-evc1-cursor');
+    expect(api.requests[0]?.method).toBe('GET');
+    expect(api.requests[0]?.url).toBe('/v1/events');
+    expect(api.requests[0]?.headers.authorization).toBe('Bearer service-token');
+  });
+
+  it('forwards an explicit integer limit as the only query parameter', async () => {
+    const api = await startApi(() => ({ status: 200, body: eventPageBody }));
+    cleanup = api.server;
+    await makeClient(api.baseUrl).listDeliveredEvents({ limit: 2 });
+    expect(api.requests[0]?.url).toBe('/v1/events?limit=2');
+  });
+
+  it('rejects out-of-range or non-integer limits client-side without sending', async () => {
+    const api = await startApi(() => ({ status: 200, body: eventPageBody }));
+    cleanup = api.server;
+    const client = makeClient(api.baseUrl);
+    await expect(client.listDeliveredEvents({ limit: 0 })).rejects.toThrow(RangeError);
+    await expect(client.listDeliveredEvents({ limit: 201 })).rejects.toThrow(RangeError);
+    await expect(client.listDeliveredEvents({ limit: 2.5 })).rejects.toThrow(RangeError);
+    expect(api.requests).toHaveLength(0);
+  });
+
+  it('acknowledges a cursor via POST /v1/events/acknowledgments with a JSON body', async () => {
+    const api = await startApi((request) => {
+      if (request.url === '/v1/events/acknowledgments') {
+        return { status: 200, body: acknowledgmentBody };
+      }
+      return { status: 404, body: '{}' };
+    });
+    cleanup = api.server;
+    const acknowledged = await makeClient(api.baseUrl).acknowledgeEvents({
+      cursor: 'mcp-evc1-cursor',
+    });
+    expect(acknowledged).toEqual({ cursor: 'mcp-evc1-cursor' });
+    expect(api.requests[0]?.method).toBe('POST');
+    expect(api.requests[0]?.url).toBe('/v1/events/acknowledgments');
+    expect(api.requests[0]?.headers.authorization).toBe('Bearer service-token');
+    expect(JSON.parse(api.requests[0]?.body ?? '{}')).toEqual({ cursor: 'mcp-evc1-cursor' });
+  });
+
+  it('requires a non-empty cursor and never fabricates one', async () => {
+    const api = await startApi(() => ({ status: 200, body: acknowledgmentBody }));
+    cleanup = api.server;
+    const client = makeClient(api.baseUrl);
+    // @ts-expect-error deliberately malformed input from JavaScript callers
+    await expect(client.acknowledgeEvents(undefined)).rejects.toThrow(TypeError);
+    await expect(client.acknowledgeEvents({ cursor: '' })).rejects.toThrow(TypeError);
+    expect(api.requests).toHaveLength(0);
+  });
+
+  it('maps events problem responses to typed McPlanProblemError', async () => {
+    const api = await startApi((request) => ({
+      status: request.url === '/v1/events' ? 403 : 400,
+      body: JSON.stringify({
+        type:
+          request.url === '/v1/events'
+            ? '/problems/access-forbidden'
+            : '/problems/validation-failed',
+        title: 'rejected',
+        status: request.url === '/v1/events' ? 403 : 400,
+        code: request.url === '/v1/events' ? 'INSUFFICIENT_SCOPE' : 'VALIDATION_FAILED',
+        trace_id: 'trace-events',
+      }),
+    }));
+    cleanup = api.server;
+    const client = makeClient(api.baseUrl);
+    await expect(client.listDeliveredEvents()).rejects.toMatchObject({
+      problem: { code: 'INSUFFICIENT_SCOPE' },
+      httpStatus: 403,
+    });
+    await expect(client.acknowledgeEvents({ cursor: 'mcp-evc1-cursor' })).rejects.toMatchObject({
+      problem: { code: 'VALIDATION_FAILED' },
+      httpStatus: 400,
+    });
+  });
+
+  it('requires a service token provider for both events operations', async () => {
+    const api = await startApi(() => ({ status: 200, body: eventPageBody }));
+    cleanup = api.server;
+    const client = makeClient(api.baseUrl, { service: false });
+    await expect(client.listDeliveredEvents()).rejects.toThrow(/getServiceToken/);
+    await expect(client.acknowledgeEvents({ cursor: 'mcp-evc1-cursor' })).rejects.toThrow(
+      /getServiceToken/,
+    );
+    expect(api.requests).toHaveLength(0);
+  });
+});

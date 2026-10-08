@@ -3,12 +3,13 @@
  *
  * The SDK only exposes operations whose contract semantics are locked in
  * `openapi/core.yaml` at 0.1.0-alpha.5 AND whose producer has passed
- * contract, HTTP E2E and real-PostgreSQL integration acceptance (the
- * twelve operations below were verified by MCP-F1-CORE-005 against
- * mc-plan-core 5508d60; the alpha.5 consumer-pull event operations have no
- * producer evidence yet). Operations without producer evidence (for example
- * getPublicUser, listDeliveredEvents and acknowledgeEvents) must not gain
- * callable client methods, and future surfaces must not be pre-invented here.
+ * contract, HTTP E2E and real-PostgreSQL integration acceptance. The first
+ * twelve operations were producer-verified by MCP-F1-CORE-005 and the two
+ * consumer-pull event operations (listDeliveredEvents, acknowledgeEvents)
+ * by MCP-F1-CORE-008, whose final tree re-ran the full gate suite for all
+ * fourteen operations (see SUPPORTED_PRODUCER_COMMIT). Operations without
+ * producer evidence (for example getPublicUser) must not gain callable
+ * client methods, and future surfaces must not be pre-invented here.
  */
 
 /** Contract prerelease version the generated types and transport are built from. */
@@ -18,7 +19,7 @@ export const SUPPORTED_CONTRACT_VERSION = '0.1.0-alpha.5' as const;
 export const SUPPORTED_CONTRACT_LOCK_COMMIT = '5ba7172427f719eca2af44a0ef5d43b9871551e5' as const;
 
 /** Producer commit of mc-plan-core verified against the supported operations. */
-export const SUPPORTED_PRODUCER_COMMIT = '5508d607628910a4f72c496e8340e526badcb9df' as const;
+export const SUPPORTED_PRODUCER_COMMIT = '87ddd66f24a9044ebcebd2d4043511fd5796029d' as const;
 
 /**
  * sha256 of every contract file consumed by the type generation, relative to
@@ -66,6 +67,8 @@ export const SUPPORTED_OPERATIONS = [
   'listCurrentEntitlements',
   'consumeCredits',
   'getCreditBalance',
+  'listDeliveredEvents',
+  'acknowledgeEvents',
 ] as const;
 
 export type SupportedOperation = (typeof SUPPORTED_OPERATIONS)[number];

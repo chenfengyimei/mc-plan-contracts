@@ -28,6 +28,14 @@ export type PersonalAccessTokenList =
   operations['listPersonalAccessTokens']['responses']['200']['content']['application/json'];
 export type EntitlementList =
   operations['listCurrentEntitlements']['responses']['200']['content']['application/json'];
+export type EventPage =
+  operations['listDeliveredEvents']['responses']['200']['content']['application/json'];
+/** One locked event envelope as delivered on the pull surface. */
+export type EventEnvelope = EventPage['items'][number];
+export type EventAcknowledgment =
+  operations['acknowledgeEvents']['responses']['200']['content']['application/json'];
+export type EventAcknowledgmentRequest =
+  operations['acknowledgeEvents']['requestBody']['content']['application/json'];
 
 /** Result envelope for consumeCredits: 201 means a fresh consumption, 200 an idempotent replay. */
 export interface ConsumptionCall {
@@ -76,7 +84,7 @@ function encodePathSegment(value: string): string {
 }
 
 /**
- * Producer-verified client for the twelve supported Core 0.1.0-alpha.4
+ * Producer-verified client for the fourteen supported Core 0.1.0-alpha.5
  * operations. Every method maps 1:1 to a locked operationId; see
  * SUPPORTED_OPERATIONS.
  */
@@ -206,6 +214,64 @@ export class McPlanCoreClient {
     throw await problemFromResponse(response);
   }
 
+  // -- Events (service-only consumer-pull delivery) --------------------------
+
+  /**
+   * Pull the oldest unacknowledged delivered events for this service
+   * consumer in publish order. Delivery is at-least-once: the same events
+   * keep returning until acknowledged, so consumers must deduplicate by the
+   * locked envelope's event_id. A caught-up consumer receives an empty
+   * items array and a null next_cursor. The SDK never invents a cursor; the
+   * cursor from the response goes straight to acknowledgeEvents.
+   */
+  public async listDeliveredEvents(
+    options: { limit?: number; signal?: AbortSignal } = {},
+  ): Promise<EventPage> {
+    const url = new URL(`${this.baseUrl}/v1/events`);
+    if (options.limit !== undefined) {
+      if (!Number.isInteger(options.limit) || options.limit < 1 || options.limit > 200) {
+        throw new RangeError('limit must be an integer between 1 and 200 (locked contract range)');
+      }
+      url.searchParams.set('limit', String(options.limit));
+    }
+    const headers = await this.authHeaders('service');
+    const response = await transportSend(
+      {
+        method: 'GET',
+        url: url.toString(),
+        headers: Object.fromEntries(headers.entries()),
+        signal: options.signal,
+        idempotent: true,
+      },
+      this.options,
+    );
+    if (response.status >= 200 && response.status < 300) {
+      return (await response.json()) as EventPage;
+    }
+    throw await problemFromResponse(response);
+  }
+
+  /**
+   * Acknowledge every delivered event up to and including the cursor's
+   * delivery position for this consumer. Idempotent: re-acknowledging an
+   * already-acknowledged cursor returns the current acknowledged position.
+   * The cursor must come from this consumer's own listDeliveredEvents page;
+   * unknown, malformed, or foreign cursors are rejected as 400 problems by
+   * the producer.
+   */
+  public async acknowledgeEvents(
+    body: EventAcknowledgmentRequest,
+    signal?: AbortSignal,
+  ): Promise<EventAcknowledgment> {
+    if (typeof body?.cursor !== 'string' || body.cursor.length === 0 || body.cursor.length > 512) {
+      throw new TypeError('acknowledgeEvents requires a cursor string of 1..512 characters');
+    }
+    return this.postJson('/v1/events/acknowledgments', { cursor: body.cursor }, 'service', {
+      idempotent: true,
+      signal,
+    });
+  }
+
   // -- internals ---------------------------------------------------------------
 
   private async getJson<T>(
@@ -271,7 +337,7 @@ export class McPlanCoreClient {
       throw new Error(
         auth === 'user'
           ? 'McPlanCoreClient: user operations require a getUserToken provider (OIDC PKCE access token or personal access token); the SDK never handles credentials itself.'
-          : 'McPlanCoreClient: consumeCredits requires a getServiceToken provider (client-credentials token with credits:consume); keep the client secret out of the SDK.',
+          : 'McPlanCoreClient: service operations (consumeCredits, listDeliveredEvents, acknowledgeEvents) require a getServiceToken provider (client-credentials token with the required scope); keep the client secret out of the SDK.',
       );
     }
     const token = await provider();

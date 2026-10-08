@@ -11,7 +11,7 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync, mkdirSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -20,16 +20,28 @@ if (typeof pnpm !== 'string' || pnpm.length === 0) {
   throw new Error('pack-check must run through pnpm (npm_execpath missing)');
 }
 
+/**
+ * npm_execpath may point at a .mjs/.cjs CLI entry that is not directly
+ * executable; in that case the entry runs through the current node binary.
+ */
+function runPnpm(args, options = {}) {
+  if (pnpm.endsWith('.mjs') || pnpm.endsWith('.cjs')) {
+    return execFileSync(process.execPath, [pnpm, ...args], options);
+  }
+  return execFileSync(pnpm, args, options);
+}
+
 const sdkRoot = process.cwd();
 const workspace = mkdtempSync(path.join(tmpdir(), 'mc-sdk-pack-check-'));
 
 try {
-  execFileSync(pnpm, ['pack', '--pack-destination', workspace], {
+  runPnpm(['pack', '--pack-destination', workspace], {
     cwd: sdkRoot,
     stdio: 'inherit',
   });
 
-  const tarballName = 'mc-plan-core-sdk-0.1.0-alpha.4.tgz';
+  const { version } = JSON.parse(readFileSync(path.join(sdkRoot, 'package.json'), 'utf8'));
+  const tarballName = `mc-plan-core-sdk-${version}.tgz`;
   const tarball = path.join(workspace, tarballName);
 
   const consumer = path.join(workspace, 'consumer');
@@ -54,12 +66,12 @@ try {
     ) + '\n',
   );
 
-  execFileSync(pnpm, ['install', '--offline'], { cwd: consumer, stdio: 'inherit' });
+  runPnpm(['install', '--offline'], { cwd: consumer, stdio: 'inherit' });
 
   writeFileSync(
     path.join(consumer, 'sample.ts'),
     [
-      "import { createMcPlanCoreClient, SUPPORTED_OPERATIONS, type PublicActor, type ConsumptionResult } from '@mc-plan/core-sdk';",
+      "import { createMcPlanCoreClient, SUPPORTED_OPERATIONS, type PublicActor, type ConsumptionResult, type EventPage, type EventAcknowledgment } from '@mc-plan/core-sdk';",
       '',
       'const client = createMcPlanCoreClient({',
       "  baseUrl: 'https://core.example.invalid',",
@@ -80,6 +92,14 @@ try {
       '    key,',
       '  );',
       '  return call.data;',
+      '}',
+      '',
+      'export async function pullDeliveredEvents(): Promise<EventPage> {',
+      '  return client.listDeliveredEvents({ limit: 50 });',
+      '}',
+      '',
+      'export async function acknowledgeDelivered(cursor: string): Promise<EventAcknowledgment> {',
+      '  return client.acknowledgeEvents({ cursor });',
       '}',
       '',
       'export const operationCount: number = SUPPORTED_OPERATIONS.length;',

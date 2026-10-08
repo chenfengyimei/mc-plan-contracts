@@ -8,6 +8,7 @@ import {
   SUPPORTED_CONTRACT_LOCK_COMMIT,
   SUPPORTED_CONTRACT_VERSION,
   SUPPORTED_OPERATIONS,
+  SUPPORTED_PRODUCER_COMMIT,
 } from '../src/supported-operations.js';
 
 const contractsRoot = path.resolve(__dirname, '../../../');
@@ -17,7 +18,7 @@ function sha256(content: Buffer | string): string {
 }
 
 describe('supported contract manifest', () => {
-  it('pins exactly the 12 producer-verified operations and no others', () => {
+  it('pins exactly the 14 producer-verified operations and no others', () => {
     expect([...SUPPORTED_OPERATIONS]).toEqual([
       'getCurrentUser',
       'createDeveloperApp',
@@ -31,12 +32,15 @@ describe('supported contract manifest', () => {
       'listCurrentEntitlements',
       'consumeCredits',
       'getCreditBalance',
+      'listDeliveredEvents',
+      'acknowledgeEvents',
     ]);
     expect(SUPPORTED_OPERATIONS).not.toContain('getPublicUser');
-    expect(SUPPORTED_OPERATIONS).not.toContain('listDeliveredEvents');
-    expect(SUPPORTED_OPERATIONS).not.toContain('acknowledgeEvents');
     expect(SUPPORTED_CONTRACT_VERSION).toBe('0.1.0-alpha.5');
     expect(SUPPORTED_CONTRACT_LOCK_COMMIT).toBe('5ba7172427f719eca2af44a0ef5d43b9871551e5');
+    // Producer evidence for the two event operations comes from the closed
+    // MCP-F1-CORE-008 slice whose final tree re-ran every gate.
+    expect(SUPPORTED_PRODUCER_COMMIT).toBe('87ddd66f24a9044ebcebd2d4043511fd5796029d');
   });
 
   it('matches the sha256 of every contract file consumed by generation', async () => {

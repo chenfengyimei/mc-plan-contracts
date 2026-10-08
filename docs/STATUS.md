@@ -1,8 +1,8 @@
 # 状态
 
-阶段：F1 Core 契约 0.1.0-alpha.7 已锁定（事件投递/公开资料生产者已验收；注销权利端点生产者实现中 `MCP-F1-CORE-010`）；TypeScript SDK 已覆盖 16 个 producer 已验证操作
+阶段：F1 Core 契约 0.1.0-alpha.7 已锁定（事件投递/公开资料/注销权利端点生产者均已验收，注销生产者 `MCP-F1-CORE-010` 已关闭于 Core `cf95e3e`）；TypeScript SDK 已覆盖 17 个 producer 已验证操作
 
-版本：Core `0.1.0-alpha.7`（W02-b 注销权利端点，`MCP-F1-CORE-010` 契约侧锁提交见 compatibility 矩阵，生产者实现中）；Skin `0.1.0-alpha.1`（ADR-0012 匿名窗口）；Community 仍为 `0.1.0-draft`
+版本：Core `0.1.0-alpha.7`（W02-b 注销权利端点，`MCP-F1-CORE-010` 契约侧锁提交见 compatibility 矩阵，生产者已关闭）；Skin `0.1.0-alpha.1`（ADR-0012 匿名窗口）；Community 仍为 `0.1.0-draft`
 
 F0 状态：已完成（本地契约骨架；尚未发布远程）
 
@@ -22,6 +22,6 @@ F0 状态：已完成（本地契约骨架；尚未发布远程）
 
 `MCP-F1-CONTRACTS-004` 已按 `MCP-F1-CORE-008` 的 producer 证据把消费者拉取事件投递两操作暴露进 `@mc-plan/core-sdk@0.1.0-alpha.5`：`listDeliveredEvents`（limit 1..200 客户端先验、EventPage/EventEnvelope 类型化、GET 幂等可重试）与 `acknowledgeEvents`（游标确认 200 幂等、SDK 不生成游标、按契约幂等可重试），均走服务凭证与既有 transport 规则；`SUPPORTED_OPERATIONS` 12→14、`SUPPORTED_PRODUCER_COMMIT` 锚定 Core `87ddd66`、契约 14 文件零漂移。验收（实际组合：Contracts `5ba7172` 锁 → SDK 14 操作 → 固定镜像 `mc-plan-core:mcp-f1-core-008-87ddd66` + 隔离 PostgreSQL + 本地 JWKS）：format/lint/严格 typecheck、generate:check 零漂移、32 项单元（+7 事件面）、build、pack:check 干净工程严格 tsc 消费两新方法（修复 npm_execpath .mjs 调用形态与 tarball 名随版本派生两处滞后）、真实 HTTP smoke 全通过——flat 事件 PUBLISHED-不可见、两个 [SYNTHETIC-DB-SEED] 锁定合法信封按发布序拉取、文件持久注册表去重（ack 前崩溃→重投→副作用恰一次）、追平空页、重复确认幂等、A/B 主体隔离与跨消费者游标 400、畸形游标 400、缺 `events:consume`/用户令牌 403、错 issuer 401；validate_contracts.py 与 redocly 基线通过。SDK 仍为 private、仅本地 pack，不发布 npm。
 
-`MCP-F1-CORE-010` 契约侧已按所有者 2026-10-08 W02-b 决策（注销联动=仅本地停用，Keycloak 不动）锁定 Core `0.1.0-alpha.7`：新增 `POST /v1/me/deactivation`（`deactivateCurrentUser`，prerelease，仅 userOAuth+`profile:write`，成功 204 无响应体，注销后重复调用与其余全部认证面按既有锁定语义 403 `ACCOUNT_UNAVAILABLE`、公开面自动 404；注销=本地置既有枚举值 CLOSED+同事务 `ACCOUNT_DEACTIVATED` 审计，零迁移、零新 scope、零新错误码），validate_contracts.py 新增 alpha.7 机器门槛（32 operationIds），SDK 类型基线随 alpha.7 重生成且支持操作保持 16 个 producer 已验证操作（`deactivateCurrentUser` 待生产者证据后另开暴露）。
+`MCP-F1-CORE-010` 契约侧已按所有者 2026-10-08 W02-b 决策（注销联动=仅本地停用，Keycloak 不动）锁定 Core `0.1.0-alpha.7`：新增 `POST /v1/me/deactivation`（`deactivateCurrentUser`，prerelease，仅 userOAuth+`profile:write`，成功 204 无响应体，注销后重复调用与其余全部认证面按既有锁定语义 403 `ACCOUNT_UNAVAILABLE`、公开面自动 404；注销=本地置既有枚举值 CLOSED+同事务 `ACCOUNT_DEACTIVATED` 审计，零迁移、零新 scope、零新错误码），validate_contracts.py 新增 alpha.7 机器门槛（32 operationIds），SDK 类型基线随 alpha.7 重生成。`MCP-F1-CORE-010` 已关闭：Core 生产者最终树 `cf95e3e`（零迁移、CLOSED+同事务 `ACCOUNT_DEACTIVATED` 审计、注销后全认证面 403 `ACCOUNT_UNAVAILABLE`、公开面 404）与运行镜像 `mc-plan-core:mcp-f1-core-010-cf95e3e` 通过全量门禁与隔离 PostgreSQL/Keycloak 集成；其记录明确把真实 Keycloak/PKCE 完整行为 smoke 留给 SDK 切片。`MCP-F1-CONTRACTS-006` 据此把 `deactivateCurrentUser` 以该 producer 证据暴露进 SDK（支持操作 16→17、producer 锚更新为 `cf95e3e`，公共契约零变化），并在本仓自有隔离 Keycloak 26.8.0 容器 + 仓内 realm 夹具上以真实 PKCE 令牌完成注销前后全链路验收与既有 16 操作回归。
 
-下一门槛：Skin/Community 真实消费者集成按契约 → SDK → 消费者顺序另开后续工作流（事件面契约、生产者与 SDK 均已就绪）；credits 来源消费与免费额度耗尽后的积分回退需先补契约并等 Q-013 价格决策；W02-b 注销权利（α.7）按本切片锁后生产者再 SDK；稳定契约/SDK 需至少一个真实消费者通过集成验收；不得把 SDK/producer 验收写成消费者已支持。
+下一门槛：Skin/Community 真实消费者集成按契约 → SDK → 消费者顺序另开后续工作流（事件面与注销面契约、生产者与 SDK 均已就绪）；credits 来源消费与免费额度耗尽后的积分回退需先补契约并等 Q-013 价格决策；W02-b 其余权利项（D5 本轮冻结=仅注销）与冷静期/再激活等扩展须所有者后续决策；稳定契约/SDK 需至少一个真实消费者通过集成验收；不得把 SDK/producer 验收写成消费者已支持。

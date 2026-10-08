@@ -1,23 +1,40 @@
 #!/usr/bin/env node
 /**
- * Real-HTTP smoke for @mc-plan/core-sdk against the fixed MCP-F1-CORE-009
- * producer image (mc-plan-core:mcp-f1-core-009-7d22539) on an isolated
- * PostgreSQL 17.
+ * Real-HTTP smoke for @mc-plan/core-sdk, run in two phases against the fixed
+ * MCP-F1-CORE-010 producer image (mc-plan-core:mcp-f1-core-010-cf95e3e) on
+ * one isolated PostgreSQL 17.
  *
- * Not a mock transport: the SDK talks to the real running Core container.
- * A tiny local JWKS endpoint signs real RS256 OIDC/service tokens so the
- * producer's issuer/audience/scope/email_verified validation runs for real.
+ * Phase 1 (regression): the established sixteen-operation scenarios against a
+ * Core container configured for a tiny local JWKS test issuer. Those tokens
+ * are honestly attributed as local-JWKS-signed; they are NOT Keycloak tokens.
+ *
+ * Phase 2 (deactivation, the behavioral smoke MCP-F1-CORE-010 explicitly left
+ * to this SDK slice): a real Keycloak 26.8.0 container imports the realm
+ * fixture under smoke/fixtures/, a second Core container starts with the real
+ * realm as its OIDC issuer, and deactivateCurrentUser is exercised end to end
+ * with real Authorization Code + PKCE tokens issued by Keycloak: ACTIVE
+ * provisioning, public profile readable, a PAT (created via the SDK before
+ * deactivation, from a labeled test-database role fixture) rejected with 403
+ * INSUFFICIENT_SCOPE, successful deactivation 204, then GET/PATCH me and a
+ * repeated deactivation all rejected with the locked 403
+ * ACCOUNT_UNAVAILABLE, the public read 404, another identity unaffected, the
+ * Keycloak user still enabled and able to log in again while Core rejects the
+ * fresh token, a profile:write-less client rejected, and a bare no-credential
+ * request rejected with 401.
+ *
+ * Not a mock transport: the SDK talks to the real running Core containers.
  * Resources (network, containers, volume) are session-unique and cleaned up
  * in finally; nothing from other sessions is touched.
  */
 
 import { execFileSync } from 'node:child_process';
-import { randomBytes, randomUUID } from 'node:crypto';
+import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import http from 'node:http';
 import net from 'node:net';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { exportJWK, generateKeyPair, SignJWT } from 'jose';
 
@@ -43,15 +60,27 @@ function resolveDocker() {
 }
 
 const docker = resolveDocker();
-const IMAGE = 'mc-plan-core:mcp-f1-core-009-7d22539';
+const IMAGE = 'mc-plan-core:mcp-f1-core-010-cf95e3e';
 const PG_IMAGE = process.env.SMOKE_PG_IMAGE ?? 'postgres:17-alpine';
-const RUN = `mcp-c001-sdk-${process.pid}`;
+const KC_IMAGE = process.env.SMOKE_KC_IMAGE ?? 'quay.io/keycloak/keycloak:26.8.0';
+const RUN = `mcp-c006-sdk-${process.pid}`;
 const NETWORK = `${RUN}-net`;
 const PG_CONTAINER = `${RUN}-pg`;
 const CORE_CONTAINER = `${RUN}-core`;
+const KC_CONTAINER = `${RUN}-kc`;
+const CORE2_CONTAINER = `${RUN}-core2`;
 const PG_VOLUME = `${RUN}-pgdata`;
 const DATABASE_URL = 'postgresql://core:core@' + PG_CONTAINER + ':5432/mc_plan_core';
 const OIDC_AUDIENCE = 'mc-plan-core';
+const REALM = 'mc-plan-sdk-smoke';
+const PKCE_WEB_CLIENT = 'mc-plan-sdk-smoke-web';
+const PKCE_WEB_CLIENT_NOSCOPE = 'mc-plan-sdk-smoke-web-noscope';
+const PKCE_REDIRECT = 'http://127.0.0.1:4714/callback';
+const SMOKE_USER_A = { username: 'sdk-smoke-owner-a', password: 'local-password-a' };
+const SMOKE_USER_B = { username: 'sdk-smoke-owner-b', password: 'local-password-b' };
+const KEYCLOAK_ADMIN = { username: 'local-admin', password: 'local-admin-only' };
+const here = path.dirname(fileURLToPath(import.meta.url));
+const REALM_FIXTURE = path.join(here, 'fixtures', 'mc-plan-sdk-smoke-realm.json');
 
 function dockerRun(args, options = {}) {
   return execFileSync(docker, args, {
@@ -129,6 +158,151 @@ async function expectProblem(promise, expectedStatus, expectedCode, label) {
 let jwksServer;
 let created = false;
 
+// ---------------------------------------------------------------------------
+// Real Keycloak Authorization Code + PKCE (S256) login, modeled on the
+// reference implementation in mc-plan-core's Keycloak integration tests.
+// ---------------------------------------------------------------------------
+
+function base64Url(bytes) {
+  return bytes.toString('base64').replace(/\+/gu, '-').replace(/\//gu, '_').replace(/=+$/u, '');
+}
+
+class CookieJar {
+  #cookies = new Map();
+
+  absorb(response) {
+    for (const cookie of response.headers.getSetCookie()) {
+      const pair = cookie.split(';')[0] ?? '';
+      const eq = pair.indexOf('=');
+      if (eq > 0) {
+        this.#cookies.set(pair.slice(0, eq), pair.slice(eq + 1));
+      }
+    }
+  }
+
+  header() {
+    return [...this.#cookies.entries()].map(([name, value]) => `${name}=${value}`).join('; ');
+  }
+}
+
+async function authorizeWithPkce(issuer, input) {
+  const jar = new CookieJar();
+  const verifier = base64Url(randomBytes(48));
+  const challenge = base64Url(createHash('sha256').update(verifier).digest());
+  const state = base64Url(randomBytes(16));
+  const url = new URL(`${issuer}/protocol/openid-connect/auth`);
+  url.searchParams.set('client_id', input.clientId);
+  url.searchParams.set('redirect_uri', input.redirectUri);
+  url.searchParams.set('response_type', 'code');
+  url.searchParams.set('scope', 'openid');
+  url.searchParams.set('state', state);
+  url.searchParams.set('code_challenge', challenge);
+  url.searchParams.set('code_challenge_method', 'S256');
+
+  let current = url.toString();
+  let response = await fetch(current, { redirect: 'manual' });
+  jar.absorb(response);
+  const callbackOriginAndPath = `${new URL(input.redirectUri).origin}${new URL(input.redirectUri).pathname}`;
+  for (let hop = 0; hop < 8 && response.status >= 300 && response.status < 400; hop += 1) {
+    const location = response.headers.get('location');
+    if (!location) {
+      break;
+    }
+    const next = new URL(location, current);
+    if (`${next.origin}${next.pathname}` === callbackOriginAndPath) {
+      return { verifier, code: next.searchParams.get('code') };
+    }
+    current = next.toString();
+    response = await fetch(current, { redirect: 'manual' });
+    jar.absorb(response);
+  }
+
+  const html = await response.text();
+  const formAction = /<form[^>]+id="kc-form-login"[^>]+action="([^"]+)"/iu.exec(html)?.[1];
+  if (!formAction) {
+    throw new Error(`Keycloak did not serve a login form (status ${response.status})`);
+  }
+  const submit = await fetch(new URL(formAction.replace(/&amp;/gu, '&'), current).toString(), {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/x-www-form-urlencoded',
+      cookie: jar.header(),
+    },
+    body: new URLSearchParams({
+      username: input.username,
+      password: input.password,
+      credentialId: '',
+    }),
+    redirect: 'manual',
+  });
+  if (submit.status < 300 || submit.status >= 400) {
+    throw new Error(
+      `Keycloak login did not redirect for ${input.username} (status ${submit.status})`,
+    );
+  }
+  const callback = new URL(submit.headers.get('location') ?? '', input.redirectUri);
+  const code = callback.searchParams.get('code');
+  if (!code) {
+    throw new Error(`Keycloak login for ${input.username} redirected without a code`);
+  }
+  return { verifier, code };
+}
+
+async function exchangeCode(issuer, input) {
+  const response = await fetch(`${issuer}/protocol/openid-connect/token`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'authorization_code',
+      client_id: input.clientId,
+      redirect_uri: input.redirectUri,
+      code: input.code,
+      code_verifier: input.verifier,
+    }),
+  });
+  if (!response.ok) {
+    throw new Error(`token exchange failed with HTTP ${response.status}`);
+  }
+  const payload = await response.json();
+  if (typeof payload.access_token !== 'string' || payload.access_token.length === 0) {
+    throw new Error('token exchange response carried no access_token');
+  }
+  return payload.access_token;
+}
+
+async function loginForToken(issuer, input) {
+  const authorization = await authorizeWithPkce(issuer, input);
+  return exchangeCode(issuer, {
+    ...input,
+    code: authorization.code,
+    verifier: authorization.verifier,
+  });
+}
+
+async function keycloakAdminGet(kcBase, pathSegments) {
+  const tokenResponse = await fetch(`${kcBase}/realms/master/protocol/openid-connect/token`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      grant_type: 'password',
+      client_id: 'admin-cli',
+      username: KEYCLOAK_ADMIN.username,
+      password: KEYCLOAK_ADMIN.password,
+    }),
+  });
+  if (!tokenResponse.ok) {
+    throw new Error(`Keycloak master admin token request failed with HTTP ${tokenResponse.status}`);
+  }
+  const adminToken = (await tokenResponse.json()).access_token;
+  const response = await fetch(`${kcBase}/admin/realms/${REALM}/${pathSegments}`, {
+    headers: { authorization: `Bearer ${adminToken}` },
+  });
+  if (!response.ok) {
+    throw new Error(`Keycloak admin request failed with HTTP ${response.status}`);
+  }
+  return response.json();
+}
+
 async function main() {
   // 0. Preflight: image presence (no pulls of the producer image; PG may be pulled).
   const images = dockerRun(['images', '--format', '{{.Repository}}:{{.Tag}}']);
@@ -136,6 +310,10 @@ async function main() {
   if (!images.includes(PG_IMAGE)) {
     console.log(`[smoke] pulling ${PG_IMAGE}…`);
     dockerRun(['pull', PG_IMAGE], { stdio: 'inherit' });
+  }
+  if (!images.includes(KC_IMAGE)) {
+    console.log(`[smoke] pulling ${KC_IMAGE}…`);
+    dockerRun(['pull', KC_IMAGE], { stdio: 'inherit' });
   }
   const busy = (() => {
     try {
@@ -146,9 +324,13 @@ async function main() {
     }
   })();
   assert(
-    !busy.includes(PG_CONTAINER) && !busy.includes(CORE_CONTAINER),
+    !busy.includes(PG_CONTAINER) &&
+      !busy.includes(CORE_CONTAINER) &&
+      !busy.includes(KC_CONTAINER) &&
+      !busy.includes(CORE2_CONTAINER),
     'container name collision',
   );
+  assert(existsSync(REALM_FIXTURE), 'realm fixture file missing');
 
   dockerRun(['network', 'create', NETWORK]);
   created = true;
@@ -652,6 +834,262 @@ async function main() {
     'malformed public user id',
   );
 
+  // -----------------------------------------------------------------------
+  // Phase 2: real Keycloak/PKCE deactivation chain on a second Core container
+  // (the behavioral smoke MCP-F1-CORE-010 explicitly left to this SDK slice).
+  // -----------------------------------------------------------------------
+
+  // Phase 1 is done: retire the local-JWKS Core container and its issuer.
+  dockerRun(['rm', '-f', CORE_CONTAINER]);
+  await new Promise((resolve) => jwksServer.close(() => resolve()));
+  jwksServer = undefined;
+
+  // 8. Real Keycloak 26.8.0 with the committed realm fixture.
+  const kcPort = await freePort();
+  dockerRun([
+    'run',
+    '-d',
+    '--name',
+    KC_CONTAINER,
+    '--network',
+    NETWORK,
+    '-p',
+    `127.0.0.1:${kcPort}:8080`,
+    '-e',
+    `KC_BOOTSTRAP_ADMIN_USERNAME=${KEYCLOAK_ADMIN.username}`,
+    '-e',
+    `KC_BOOTSTRAP_ADMIN_PASSWORD=${KEYCLOAK_ADMIN.password}`,
+    '-e',
+    'KC_HEALTH_ENABLED=true',
+    '-v',
+    `${REALM_FIXTURE}:/opt/keycloak/data/import/mc-plan-sdk-smoke-realm.json:ro`,
+    KC_IMAGE,
+    'start-dev',
+    '--import-realm',
+  ]);
+  const kcBase = `http://127.0.0.1:${kcPort}`;
+  const kcIssuer = `${kcBase}/realms/${REALM}`;
+  await waitFor(
+    'keycloak discovery',
+    async () => {
+      const response = await fetch(`${kcIssuer}/.well-known/openid-configuration`);
+      return response.ok;
+    },
+    240_000,
+  );
+  console.log('[smoke] keycloak ready at', kcBase);
+
+  // 9. Second Core container against the real realm (migrations already
+  // applied to the shared isolated volume in phase 1). The KEYCLOAK_ADMIN_*
+  // keys are fail-closed shape requirements since MCP-F1-CORE-007; the
+  // deactivation path never calls the admin client.
+  const core2Port = await freePort();
+  dockerRun([
+    'run',
+    '-d',
+    '--name',
+    CORE2_CONTAINER,
+    '--network',
+    NETWORK,
+    '-p',
+    `127.0.0.1:${core2Port}:3000`,
+    '-e',
+    `DATABASE_URL=${DATABASE_URL}`,
+    '-e',
+    `OIDC_ISSUER=${kcIssuer}`,
+    '-e',
+    `OIDC_JWKS_URL=http://host.docker.internal:${kcPort}/realms/${REALM}/protocol/openid-connect/certs`,
+    '-e',
+    `OIDC_AUDIENCE=${OIDC_AUDIENCE}`,
+    '-e',
+    'OIDC_ALLOWED_ALGORITHMS=RS256',
+    '-e',
+    'OIDC_CLOCK_TOLERANCE_SECONDS=5',
+    '-e',
+    `PAT_HASH_KEY=${randomBytes(32).toString('hex')}`,
+    '-e',
+    'PAT_MAX_VALIDITY_DAYS=30',
+    '-e',
+    'NODE_ENV=production',
+    '-e',
+    'OTEL_ENABLED=false',
+    '-e',
+    `KEYCLOAK_ADMIN_TOKEN_URL=http://host.docker.internal:${kcPort}/realms/${REALM}/protocol/openid-connect/token`,
+    '-e',
+    `KEYCLOAK_ADMIN_REALM=${REALM}`,
+    '-e',
+    'KEYCLOAK_ADMIN_CLIENT_ID=mc-plan-core-admin',
+    '-e',
+    `KEYCLOAK_ADMIN_CLIENT_SECRET=local-smoke-${randomBytes(16).toString('hex')}`,
+    IMAGE,
+  ]);
+  const baseUrl2 = `http://127.0.0.1:${core2Port}`;
+  await waitFor(
+    'core phase-2 ready',
+    async () => {
+      const response = await fetch(`${baseUrl2}/health/ready`);
+      return response.status === 200;
+    },
+    90_000,
+  );
+  console.log('[smoke] phase-2 core container ready at', baseUrl2);
+
+  // 10. [REAL-KEYCLOAK-PKCE] Log user A in through the browser PKCE flow and
+  // provision the ACTIVE business account through the SDK.
+  const tokenA = await loginForToken(kcIssuer, {
+    clientId: PKCE_WEB_CLIENT,
+    redirectUri: PKCE_REDIRECT,
+    username: SMOKE_USER_A.username,
+    password: SMOKE_USER_A.password,
+  });
+  const clientA = createMcPlanCoreClient({ baseUrl: baseUrl2, getUserToken: async () => tokenA });
+  const meA = await clientA.getCurrentUser();
+  assertEqual(meA.user_id.length > 0, true, 'PKCE user A provisions a business account');
+  const publicClient2 = createMcPlanCoreClient({ baseUrl: baseUrl2 });
+  const publicA = await publicClient2.getPublicUser(meA.user_id);
+  assertEqual(publicA.user_id, meA.user_id, 'public profile readable before deactivation');
+
+  // 11. [SYNTHETIC-DB-SEED] Freshly provisioned accounts carry the default
+  // USER role while PAT creation requires DEVELOPER; promote user A's role
+  // directly in the isolated test database as an explicitly labeled fixture
+  // so the PAT below can be created through the real SDK surface.
+  psql(`update mc_plan_users set role = 'DEVELOPER' where id = '${meA.user_id}'::uuid`);
+
+  // 12. [REAL-KEYCLOAK-PKCE + REAL-SDK-PAT] Create the PAT through the SDK
+  // BEFORE deactivation (explicit test-source fixture; the plaintext is used
+  // only in-memory by this smoke). The PAT catalog never contains
+  // profile:write, so the PAT cannot deactivate the still-ACTIVE account.
+  const patCreated = await clientA.createPersonalAccessToken({ scopes: ['profile:read'] });
+  assertEqual(patCreated.scopes[0], 'profile:read', 'PAT carries only catalog scopes');
+  const patClient = createMcPlanCoreClient({
+    baseUrl: baseUrl2,
+    getUserToken: async () => patCreated.token,
+  });
+  await expectProblem(
+    patClient.deactivateCurrentUser(),
+    403,
+    'INSUFFICIENT_SCOPE',
+    'PAT can never obtain profile:write',
+  );
+
+  // 13. [REAL-KEYCLOAK-PKCE] The interactive OIDC user token deactivates the
+  // account: 204, no body, void.
+  const deactivation = await clientA.deactivateCurrentUser();
+  assertEqual(deactivation, undefined, 'deactivation resolves to void on 204');
+
+  // 14. [REAL-KEYCLOAK-PKCE] Every authenticated face now rejects with the
+  // locked ACCOUNT_UNAVAILABLE problem, including the repeated deactivation;
+  // the public read falls back to ACTIVE-only 404.
+  await expectProblem(
+    clientA.getCurrentUser(),
+    403,
+    'ACCOUNT_UNAVAILABLE',
+    'GET /v1/me after deactivation',
+  );
+  await expectProblem(
+    clientA.updateCurrentUser({ display_name: 'Nope' }),
+    403,
+    'ACCOUNT_UNAVAILABLE',
+    'PATCH /v1/me after deactivation',
+  );
+  await expectProblem(
+    clientA.deactivateCurrentUser(),
+    403,
+    'ACCOUNT_UNAVAILABLE',
+    'repeated deactivation with the same token',
+  );
+  await expectProblem(
+    patClient.getCurrentUser(),
+    403,
+    'ACCOUNT_UNAVAILABLE',
+    'PAT-authenticated face after deactivation',
+  );
+  await expectProblem(
+    publicClient2.getPublicUser(meA.user_id),
+    404,
+    'NOT_FOUND',
+    'public profile 404 after deactivation',
+  );
+
+  // 15. [REAL-KEYCLOAK-PKCE] Another identity is completely unaffected.
+  const tokenB = await loginForToken(kcIssuer, {
+    clientId: PKCE_WEB_CLIENT,
+    redirectUri: PKCE_REDIRECT,
+    username: SMOKE_USER_B.username,
+    password: SMOKE_USER_B.password,
+  });
+  const clientB = createMcPlanCoreClient({ baseUrl: baseUrl2, getUserToken: async () => tokenB });
+  const meB = await clientB.getCurrentUser();
+  assertEqual(meB.user_id.length > 0, true, 'user B still resolves a principal');
+  assert(meB.user_id !== meA.user_id, 'user B is a distinct business account');
+  const entitlementsB = await clientB.listCurrentEntitlements();
+  assertEqual(entitlementsB.items.length, 1, "user B's authenticated faces keep working");
+  const publicB = await publicClient2.getPublicUser(meB.user_id);
+  assertEqual(publicB.user_id, meB.user_id, "user B's public profile still readable");
+  await expectProblem(
+    publicClient2.getPublicUser(meA.user_id),
+    404,
+    'NOT_FOUND',
+    "deactivated user A stays 404 from user B's view",
+  );
+
+  // 16. [REAL-KEYCLOAK-ADMIN] Deactivation is local-only (W02-b owner
+  // decision): the Keycloak user is still enabled in the realm.
+  const keycloakUsers = await keycloakAdminGet(
+    kcBase,
+    `users?username=${SMOKE_USER_A.username}&exact=true`,
+  );
+  assertEqual(keycloakUsers.length, 1, 'Keycloak still knows user A');
+  assertEqual(
+    keycloakUsers[0].enabled,
+    true,
+    'Keycloak user A remains enabled after Core deactivation',
+  );
+
+  // 17. [REAL-KEYCLOAK-PKCE] Keycloak still logs user A in; Core rejects the
+  // fresh token with the locked problem. This is the full owner-decided
+  // boundary: login remains possible while every Core API face rejects.
+  const tokenA2 = await loginForToken(kcIssuer, {
+    clientId: PKCE_WEB_CLIENT,
+    redirectUri: PKCE_REDIRECT,
+    username: SMOKE_USER_A.username,
+    password: SMOKE_USER_A.password,
+  });
+  assert(tokenA2.length > 0, 'Keycloak re-login succeeds after Core-side deactivation');
+  const clientA2 = createMcPlanCoreClient({ baseUrl: baseUrl2, getUserToken: async () => tokenA2 });
+  await expectProblem(
+    clientA2.getCurrentUser(),
+    403,
+    'ACCOUNT_UNAVAILABLE',
+    'fresh PKCE token is rejected by Core although Keycloak issued it',
+  );
+
+  // 18. [REAL-KEYCLOAK-PKCE] A profile:write-less client cannot deactivate
+  // user B's still-ACTIVE account, and the call leaves it ACTIVE.
+  const tokenBn = await loginForToken(kcIssuer, {
+    clientId: PKCE_WEB_CLIENT_NOSCOPE,
+    redirectUri: PKCE_REDIRECT,
+    username: SMOKE_USER_B.username,
+    password: SMOKE_USER_B.password,
+  });
+  const clientBn = createMcPlanCoreClient({ baseUrl: baseUrl2, getUserToken: async () => tokenBn });
+  await expectProblem(
+    clientBn.deactivateCurrentUser(),
+    403,
+    'INSUFFICIENT_SCOPE',
+    'OIDC token without profile:write cannot deactivate',
+  );
+  const meBn = await clientBn.getCurrentUser();
+  assertEqual(meBn.user_id, meB.user_id, 'user B remains ACTIVE after the rejected deactivation');
+
+  // 19. [REAL-PRODUCER-HTTP] A bare no-credential request is rejected with
+  // the locked 401 problem (raw HTTP; no SDK method skips the token
+  // provider on purpose, so the producer boundary is probed directly).
+  const bare = await fetch(`${baseUrl2}/v1/me/deactivation`, { method: 'POST' });
+  assertEqual(bare.status, 401, 'no-credential deactivation rejected with 401');
+  const bareProblem = await bare.json();
+  assertEqual(bareProblem.code, 'AUTHENTICATION_REQUIRED', 'no-credential problem code');
+
   console.log('[smoke] all scenarios passed ✔');
 }
 
@@ -667,6 +1105,8 @@ async function cleanup() {
     await new Promise((resolve) => jwksServer.close(() => resolve()));
   }
   if (created) {
+    swallow(() => dockerRun(['rm', '-f', CORE2_CONTAINER]));
+    swallow(() => dockerRun(['rm', '-f', KC_CONTAINER]));
     swallow(() => dockerRun(['rm', '-f', CORE_CONTAINER]));
     swallow(() => dockerRun(['rm', '-f', PG_CONTAINER]));
     swallow(() => dockerRun(['volume', 'rm', PG_VOLUME]));
@@ -676,6 +1116,15 @@ async function cleanup() {
 
 try {
   await main();
+} catch (error) {
+  // Best-effort diagnostics from this session's own containers only.
+  try {
+    console.error('--- core phase-2 container logs (tail) ---');
+    console.error(dockerRun(['logs', '--tail', '80', CORE2_CONTAINER]));
+  } catch {
+    // the container may not exist; cleanup still runs
+  }
+  throw error;
 } finally {
   await cleanup();
 }

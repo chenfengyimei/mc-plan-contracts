@@ -6,13 +6,13 @@
  * contract, HTTP E2E and real-PostgreSQL integration acceptance. The first
  * twelve operations were producer-verified by MCP-F1-CORE-005, the two
  * consumer-pull event operations by MCP-F1-CORE-008, and the alpha.6 public
- * profile operations (getPublicUser, updateCurrentUser) by MCP-F1-CORE-009,
- * whose final tree (see SUPPORTED_PRODUCER_COMMIT) re-ran the full gate
- * suite for all sixteen operations. The alpha.7 deactivation operation
- * (deactivateCurrentUser) is type-generated here but deliberately absent
- * until its own producer evidence lands. Operations without producer
- * evidence must not gain callable client methods, and future surfaces must
- * not be pre-invented here.
+ * profile operations (getPublicUser, updateCurrentUser) by MCP-F1-CORE-009.
+ * The alpha.7 deactivation operation (deactivateCurrentUser) is verified by
+ * MCP-F1-CORE-010, whose final tree (see SUPPORTED_PRODUCER_COMMIT) carries
+ * the deactivation producer and re-ran the full gate suite for all
+ * seventeen operations. Operations without producer evidence must not gain
+ * callable client methods, and future surfaces must not be pre-invented
+ * here.
  */
 
 /** Contract prerelease version the generated types and transport are built from. */
@@ -21,8 +21,12 @@ export const SUPPORTED_CONTRACT_VERSION = '0.1.0-alpha.7' as const;
 /** Contracts commit that locked the 0.1.0-alpha.7 surface (verify against docs/compatibility.md). */
 export const SUPPORTED_CONTRACT_LOCK_COMMIT = '56bff96fe5fcad31f85943b7a557ec54148ea503' as const;
 
-/** Producer commit of mc-plan-core verified against the supported operations. */
-export const SUPPORTED_PRODUCER_COMMIT = '7d2253999480117422aab48feb9f2602af8f444e' as const;
+/**
+ * Producer commit of mc-plan-core verified against the supported operations:
+ * the MCP-F1-CORE-010 final tree, which implements the alpha.7 deactivation
+ * surface and re-ran the full producer gate suite.
+ */
+export const SUPPORTED_PRODUCER_COMMIT = 'cf95e3efdab749c4f3f6aeb6b300051af58322bf' as const;
 
 /**
  * sha256 of every contract file consumed by the type generation, relative to
@@ -56,7 +60,7 @@ export const SUPPORTED_CONTRACT_FILES = {
 
 export type SupportedContractFile = keyof typeof SUPPORTED_CONTRACT_FILES;
 
-/** The only operationIds this SDK exposes. getPublicUser and updateCurrentUser are both exposed since MCP-F1-CORE-009; deactivateCurrentUser stays absent until MCP-F1-CORE-010 producer evidence. */
+/** The only operationIds this SDK exposes. getPublicUser and updateCurrentUser are both exposed since MCP-F1-CORE-009; deactivateCurrentUser is exposed since MCP-F1-CORE-010 producer evidence. */
 export const SUPPORTED_OPERATIONS = [
   'getCurrentUser',
   'createDeveloperApp',
@@ -74,6 +78,7 @@ export const SUPPORTED_OPERATIONS = [
   'acknowledgeEvents',
   'getPublicUser',
   'updateCurrentUser',
+  'deactivateCurrentUser',
 ] as const;
 
 export type SupportedOperation = (typeof SUPPORTED_OPERATIONS)[number];

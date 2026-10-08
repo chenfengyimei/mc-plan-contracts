@@ -86,7 +86,7 @@ function encodePathSegment(value: string): string {
 }
 
 /**
- * Producer-verified client for the sixteen supported Core 0.1.0-alpha.6
+ * Producer-verified client for the seventeen supported Core 0.1.0-alpha.7
  * operations. Every method maps 1:1 to a locked operationId; see
  * SUPPORTED_OPERATIONS.
  */
@@ -153,6 +153,40 @@ export class McPlanCoreClient {
       idempotent: false,
       signal,
     });
+  }
+
+  /**
+   * Deactivate (close) the calling user's own account (prerelease). The
+   * locked surface carries NO request body and answers 204 with NO response
+   * body, so this method resolves to void without parsing the response.
+   * Personal access tokens can never obtain profile:write, so only an
+   * interactive OIDC user token can deactivate. The call is NOT retried
+   * automatically: a timeout or a dropped connection must never fire a
+   * second deactivation request. After a successful deactivation the
+   * business account is CLOSED and every later authenticated call -
+   * including a repeated deactivation with the same token - rejects with
+   * the locked 403 ACCOUNT_UNAVAILABLE problem; the SDK never turns that
+   * repeat into an idempotent success.
+   */
+  public async deactivateCurrentUser(signal?: AbortSignal): Promise<void> {
+    const headers = await this.authHeaders('user');
+    // No request body is declared by the locked contract, so no media type
+    // header is sent either.
+    headers.delete('Content-Type');
+    const response = await transportSend(
+      {
+        method: 'POST',
+        url: `${this.baseUrl}/v1/me/deactivation`,
+        headers: Object.fromEntries(headers.entries()),
+        signal,
+        idempotent: false,
+      },
+      this.options,
+    );
+    if (response.status === 204) {
+      return;
+    }
+    throw await problemFromResponse(response);
   }
 
   // -- Developer Apps --------------------------------------------------------

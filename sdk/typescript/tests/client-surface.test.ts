@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { McPlanCoreClient, type McPlanCoreClientOptions } from '../src/client.js';
 import { McPlanProblemError, McPlanUnexpectedResponseError } from '../src/problem.js';
+import { McPlanNetworkError } from '../src/transport.js';
 
 interface RecordedRequest {
   method: string;
@@ -373,6 +374,89 @@ describe('McPlanCoreClient events surface (service-only consumer pull)', () => {
     await expect(client.acknowledgeEvents({ cursor: 'mcp-evc1-cursor' })).rejects.toThrow(
       /getServiceToken/,
     );
+    expect(api.requests).toHaveLength(0);
+  });
+});
+
+describe('McPlanCoreClient deactivation surface (alpha.7 deactivateCurrentUser)', () => {
+  it('POSTs /v1/me/deactivation with a user token, no body and no media type, and maps 204 to void', async () => {
+    const api = await startApi(() => ({ status: 204, body: '' }));
+    cleanup = api.server;
+    const result = await makeClient(api.baseUrl).deactivateCurrentUser();
+    expect(result).toBeUndefined();
+    expect(api.requests).toHaveLength(1);
+    expect(api.requests[0]?.method).toBe('POST');
+    expect(api.requests[0]?.url).toBe('/v1/me/deactivation');
+    expect(api.requests[0]?.headers.authorization).toBe('Bearer oidc-user-token');
+    expect(api.requests[0]?.headers.accept).toBe('application/json');
+    expect(api.requests[0]?.headers['content-type']).toBeUndefined();
+    expect(api.requests[0]?.body).toBeUndefined();
+  });
+
+  it('maps 401 and 403 problem responses to typed McPlanProblemError', async () => {
+    let status = 401;
+    const api = await startApi(() => ({
+      status,
+      body: JSON.stringify({
+        type: '/problems/authentication-required',
+        title: status === 401 ? 'Authentication required' : 'Account unavailable',
+        status,
+        code: status === 401 ? 'AUTHENTICATION_REQUIRED' : 'ACCOUNT_UNAVAILABLE',
+        trace_id: `trace-${status}`,
+      }),
+    }));
+    cleanup = api.server;
+    const client = makeClient(api.baseUrl);
+    const unauthenticated = client.deactivateCurrentUser();
+    await expect(unauthenticated).rejects.toMatchObject({
+      problem: { code: 'AUTHENTICATION_REQUIRED' },
+      httpStatus: 401,
+    });
+    status = 403;
+    const unavailable = client.deactivateCurrentUser();
+    await expect(unavailable).rejects.toMatchObject({
+      problem: { code: 'ACCOUNT_UNAVAILABLE' },
+      httpStatus: 403,
+    });
+    expect(api.requests).toHaveLength(2);
+  });
+
+  it('never retries the deactivation POST on retryable server errors', async () => {
+    const api = await startApi(() => ({ status: 503, body: '' }));
+    cleanup = api.server;
+    const client = makeClient(api.baseUrl);
+    await expect(client.deactivateCurrentUser()).rejects.toBeInstanceOf(
+      McPlanUnexpectedResponseError,
+    );
+    expect(api.requests).toHaveLength(1);
+  });
+
+  it('fires exactly one deactivation request when the connection drops mid-flight', async () => {
+    let attempts = 0;
+    const server = createServer((request) => {
+      attempts += 1;
+      request.socket.destroy();
+    });
+    cleanup = server;
+    await new Promise<void>((resolve) => {
+      server.listen(0, '127.0.0.1', resolve);
+    });
+    const address = server.address() as AddressInfo;
+    const client = new McPlanCoreClient({
+      baseUrl: `http://127.0.0.1:${address.port}`,
+      getUserToken: () => 'oidc-user-token',
+    });
+    await expect(client.deactivateCurrentUser()).rejects.toBeInstanceOf(McPlanNetworkError);
+    // A retry would surface within the transport's first backoff window.
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    expect(attempts).toBe(1);
+  });
+
+  it('requires a user token provider for deactivation and sends nothing without one', async () => {
+    const api = await startApi(() => ({ status: 204, body: '' }));
+    cleanup = api.server;
+    const client = makeClient(api.baseUrl, { user: false });
+    await expect(client.deactivateCurrentUser()).rejects.toThrow(/getUserToken/);
     expect(api.requests).toHaveLength(0);
   });
 });

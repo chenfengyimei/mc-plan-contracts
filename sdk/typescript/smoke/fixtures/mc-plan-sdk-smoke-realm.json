@@ -1,0 +1,229 @@
+{
+  "realm": "mc-plan-sdk-smoke",
+  "displayName": "MC Plan SDK deactivation smoke (Contracts-owned fixture)",
+  "enabled": true,
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "verifyEmail": false,
+  "resetPasswordAllowed": false,
+  "rememberMe": false,
+  "clientScopes": [
+    {
+      "name": "subject",
+      "description": "Expose the stable external subject required by the Core IdentityLink boundary",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "false",
+        "display.on.consent.screen": "false"
+      },
+      "protocolMappers": [
+        {
+          "name": "subject",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-sub-mapper",
+          "consentRequired": false,
+          "config": {
+            "access.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "name": "email",
+      "description": "Expose verified email state to Core without using email as an identity key",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "true"
+      },
+      "protocolMappers": [
+        {
+          "name": "email",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-property-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "email",
+            "claim.name": "email",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        },
+        {
+          "name": "email verified",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-property-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "emailVerified",
+            "claim.name": "email_verified",
+            "jsonType.label": "boolean",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        }
+      ]
+    },
+    {
+      "name": "profile:read",
+      "description": "Read the current user's public MC Plan profile",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "true"
+      },
+      "protocolMappers": []
+    },
+    {
+      "name": "profile:write",
+      "description": "Edit the profile and deactivate the account; never grantable to personal access tokens by the Core PAT catalog",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "true"
+      },
+      "protocolMappers": []
+    },
+    {
+      "name": "credits:read",
+      "description": "Read the current user's entitlements and credit balance",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "true"
+      },
+      "protocolMappers": []
+    },
+    {
+      "name": "pat:manage",
+      "description": "Create or revoke the current user's personal access tokens",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "true",
+        "display.on.consent.screen": "true"
+      },
+      "protocolMappers": []
+    },
+    {
+      "name": "mc-plan-core-audience",
+      "description": "Add the Core resource audience to access tokens",
+      "protocol": "openid-connect",
+      "attributes": {
+        "include.in.token.scope": "false",
+        "display.on.consent.screen": "false"
+      },
+      "protocolMappers": [
+        {
+          "name": "mc-plan-core audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "mc-plan-core",
+            "id.token.claim": "false",
+            "access.token.claim": "true"
+          }
+        }
+      ]
+    }
+  ],
+  "clients": [
+    {
+      "clientId": "mc-plan-core",
+      "name": "MC Plan Core resource server",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "bearerOnly": true,
+      "publicClient": false,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false
+    },
+    {
+      "clientId": "mc-plan-sdk-smoke-web",
+      "name": "MC Plan SDK smoke PKCE client",
+      "description": "Public Authorization Code + PKCE client whose default scopes include profile:write so an interactive OIDC user token can deactivate the account.",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "fullScopeAllowed": false,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "frontchannelLogout": true,
+      "redirectUris": ["http://127.0.0.1:4714/callback"],
+      "webOrigins": [],
+      "attributes": {
+        "pkce.code.challenge.method": "S256"
+      },
+      "defaultClientScopes": [
+        "subject",
+        "email",
+        "profile:read",
+        "profile:write",
+        "credits:read",
+        "pat:manage",
+        "mc-plan-core-audience"
+      ],
+      "optionalClientScopes": []
+    },
+    {
+      "clientId": "mc-plan-sdk-smoke-web-noscope",
+      "name": "MC Plan SDK smoke PKCE client without profile:write",
+      "description": "Public Authorization Code + PKCE client whose default scopes deliberately exclude profile:write so its user token cannot deactivate.",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": true,
+      "fullScopeAllowed": false,
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "frontchannelLogout": true,
+      "redirectUris": ["http://127.0.0.1:4714/callback"],
+      "webOrigins": [],
+      "attributes": {
+        "pkce.code.challenge.method": "S256"
+      },
+      "defaultClientScopes": ["subject", "email", "profile:read", "mc-plan-core-audience"],
+      "optionalClientScopes": []
+    }
+  ],
+  "users": [
+    {
+      "username": "sdk-smoke-owner-a",
+      "enabled": true,
+      "email": "sdk-smoke-owner-a@mc-plan.example.invalid",
+      "emailVerified": true,
+      "firstName": "Sdk",
+      "lastName": "Smoke A",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "local-password-a",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "username": "sdk-smoke-owner-b",
+      "enabled": true,
+      "email": "sdk-smoke-owner-b@mc-plan.example.invalid",
+      "emailVerified": true,
+      "firstName": "Sdk",
+      "lastName": "Smoke B",
+      "credentials": [
+        {
+          "type": "password",
+          "value": "local-password-b",
+          "temporary": false
+        }
+      ]
+    }
+  ]
+}

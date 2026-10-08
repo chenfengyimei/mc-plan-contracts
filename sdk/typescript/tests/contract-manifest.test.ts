@@ -18,7 +18,7 @@ function sha256(content: Buffer | string): string {
 }
 
 describe('supported contract manifest', () => {
-  it('pins exactly the 14 producer-verified operations and no others', () => {
+  it('pins exactly the 17 producer-verified operations and no others', () => {
     expect([...SUPPORTED_OPERATIONS]).toEqual([
       'getCurrentUser',
       'createDeveloperApp',
@@ -36,15 +36,16 @@ describe('supported contract manifest', () => {
       'acknowledgeEvents',
       'getPublicUser',
       'updateCurrentUser',
+      'deactivateCurrentUser',
     ]);
     expect(SUPPORTED_OPERATIONS).not.toContain('someFutureOperation');
     expect(SUPPORTED_CONTRACT_VERSION).toBe('0.1.0-alpha.7');
     expect(SUPPORTED_CONTRACT_LOCK_COMMIT).toBe('56bff96fe5fcad31f85943b7a557ec54148ea503');
-    // Producer evidence for all sixteen supported operations comes from the
-    // closed MCP-F1-CORE-009 slice (MCP-F1-CORE-008/005 before it) whose
-    // final tree re-ran every gate; the alpha.7 deactivation operation is
-    // not yet exposed and does not claim producer evidence here.
-    expect(SUPPORTED_PRODUCER_COMMIT).toBe('7d2253999480117422aab48feb9f2602af8f444e');
+    // Producer evidence for all seventeen supported operations comes from the
+    // closed MCP-F1-CORE-010 slice (MCP-F1-CORE-009/008/005 before it) whose
+    // final tree implements the alpha.7 deactivation surface and re-ran
+    // every producer gate.
+    expect(SUPPORTED_PRODUCER_COMMIT).toBe('cf95e3efdab749c4f3f6aeb6b300051af58322bf');
   });
 
   it('matches the sha256 of every contract file consumed by generation', async () => {

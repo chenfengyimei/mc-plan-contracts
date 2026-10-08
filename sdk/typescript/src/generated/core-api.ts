@@ -17,7 +17,11 @@ export interface paths {
          */
         get: operations["getCurrentUser"];
         put?: never;
-        post?: never;
+        /**
+         * Deactivate (close) the current user's own account
+         * @description Closes the calling user's business account locally (W02-b; owner decision 2026-10-08 keeps Keycloak untouched): the account status becomes CLOSED with an audit record in the same transaction and the response carries no body. Only ACTIVE business accounts resolve a principal, so every authenticated face afterwards - including a repeated deactivation call with the same token - answers the locked 403 ACCOUNT_UNAVAILABLE problem, and the public profile read returns 404 through the locked ACTIVE-only semantics. Entitlement and credit state is left untouched by this prerelease surface and there is no account reactivation path in this prerelease.
+         */
+        post: operations["deactivateCurrentUser"];
         delete?: never;
         options?: never;
         head?: never;
@@ -537,6 +541,27 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["actor"];
                 };
+            };
+            401: components["responses"]["AuthenticationRequired"];
+            403: components["responses"]["AccessForbidden"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    deactivateCurrentUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Account deactivated */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             401: components["responses"]["AuthenticationRequired"];
             403: components["responses"]["AccessForbidden"];

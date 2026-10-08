@@ -38,11 +38,13 @@ describe('supported contract manifest', () => {
       'updateCurrentUser',
     ]);
     expect(SUPPORTED_OPERATIONS).not.toContain('someFutureOperation');
-    expect(SUPPORTED_CONTRACT_VERSION).toBe('0.1.0-alpha.6');
-    expect(SUPPORTED_CONTRACT_LOCK_COMMIT).toBe('6b80c4cf78053fb953452f50cb08c15272176759');
-    // Producer evidence for the two event operations comes from the closed
-    // MCP-F1-CORE-008 slice whose final tree re-ran every gate.
-    expect(SUPPORTED_PRODUCER_COMMIT).toBe('87ddd66f24a9044ebcebd2d4043511fd5796029d');
+    expect(SUPPORTED_CONTRACT_VERSION).toBe('0.1.0-alpha.7');
+    expect(SUPPORTED_CONTRACT_LOCK_COMMIT).toBe('56bff96fe5fcad31f85943b7a557ec54148ea503');
+    // Producer evidence for all sixteen supported operations comes from the
+    // closed MCP-F1-CORE-009 slice (MCP-F1-CORE-008/005 before it) whose
+    // final tree re-ran every gate; the alpha.7 deactivation operation is
+    // not yet exposed and does not claim producer evidence here.
+    expect(SUPPORTED_PRODUCER_COMMIT).toBe('7d2253999480117422aab48feb9f2602af8f444e');
   });
 
   it('matches the sha256 of every contract file consumed by generation', async () => {

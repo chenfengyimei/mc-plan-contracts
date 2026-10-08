@@ -57,5 +57,6 @@ export {
   type PersonalAccessTokenCreated,
   type PersonalAccessTokenList,
   type PublicActor,
+  type UpdateCurrentUserRequest,
 } from './client.js';
 export type { components, operations, paths } from './generated/core-api.js';

@@ -34,9 +34,10 @@ describe('supported contract manifest', () => {
       'getCreditBalance',
       'listDeliveredEvents',
       'acknowledgeEvents',
+      'getPublicUser',
+      'updateCurrentUser',
     ]);
-    expect(SUPPORTED_OPERATIONS).not.toContain('getPublicUser');
-    expect(SUPPORTED_OPERATIONS).not.toContain('updateCurrentUser');
+    expect(SUPPORTED_OPERATIONS).not.toContain('someFutureOperation');
     expect(SUPPORTED_CONTRACT_VERSION).toBe('0.1.0-alpha.6');
     expect(SUPPORTED_CONTRACT_LOCK_COMMIT).toBe('6b80c4cf78053fb953452f50cb08c15272176759');
     // Producer evidence for the two event operations comes from the closed

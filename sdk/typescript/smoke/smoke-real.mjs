@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
- * Real-HTTP smoke for @mc-plan/core-sdk against the fixed MCP-F1-CORE-008
- * producer image (mc-plan-core:mcp-f1-core-008-87ddd66) on an isolated
+ * Real-HTTP smoke for @mc-plan/core-sdk against the fixed MCP-F1-CORE-009
+ * producer image (mc-plan-core:mcp-f1-core-009-7d22539) on an isolated
  * PostgreSQL 17.
  *
  * Not a mock transport: the SDK talks to the real running Core container.
@@ -43,7 +43,7 @@ function resolveDocker() {
 }
 
 const docker = resolveDocker();
-const IMAGE = 'mc-plan-core:mcp-f1-core-008-87ddd66';
+const IMAGE = 'mc-plan-core:mcp-f1-core-009-7d22539';
 const PG_IMAGE = process.env.SMOKE_PG_IMAGE ?? 'postgres:17-alpine';
 const RUN = `mcp-c001-sdk-${process.pid}`;
 const NETWORK = `${RUN}-net`;
@@ -306,7 +306,7 @@ async function main() {
       .sign(rsa.privateKey);
   const userToken = await sign({
     sub: 'sdk-smoke-user-001',
-    scope: 'profile:read credits:read',
+    scope: 'profile:read profile:write credits:read',
     email_verified: true,
   });
   const serviceToken = await sign({ sub: 'sdk-smoke-service', scope: 'credits:consume' });
@@ -627,6 +627,31 @@ async function main() {
   );
 
   rmSync(registryDir, { recursive: true, force: true });
+  // 7. Public profile surface (MCP-F1-CORE-009 producer evidence): the
+  // unauthenticated read must carry NO credential header and still return the
+  // same stable PublicActor; unknown ids are 404 without disclosure; the
+  // display-name edit round-trips through PATCH /v1/me and GET /v1/me.
+  const publicClient = createMcPlanCoreClient({ baseUrl });
+  const publicActor = await publicClient.getPublicUser(me.user_id);
+  assertEqual(publicActor.user_id, me.user_id, 'public read returns the same user id');
+  assertEqual(publicActor.display_name, me.display_name, 'public read returns the display name');
+  await expectProblem(
+    publicClient.getPublicUser('00000000-0000-4000-8000-000000000000'),
+    404,
+    'NOT_FOUND',
+    'unknown public user id',
+  );
+  const renamed = await userClient.updateCurrentUser({ display_name: 'Renamed Smoke User' });
+  assertEqual(renamed.display_name, 'Renamed Smoke User', 'display-name edit applied');
+  const reread = await userClient.getCurrentUser();
+  assertEqual(reread.display_name, 'Renamed Smoke User', 'GET /v1/me reflects the new name');
+  await expectProblem(
+    publicClient.getPublicUser('not-a-uuid'),
+    404,
+    'NOT_FOUND',
+    'malformed public user id',
+  );
+
   console.log('[smoke] all scenarios passed ✔');
 }
 

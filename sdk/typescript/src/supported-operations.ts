@@ -5,10 +5,11 @@
  * `openapi/core.yaml` at 0.1.0-alpha.6 AND whose producer has passed
  * contract, HTTP E2E and real-PostgreSQL integration acceptance. The first
  * twelve operations were producer-verified by MCP-F1-CORE-005, the two
- * consumer-pull event operations by MCP-F1-CORE-008, and the alpha.6
- * additions (getPublicUser, updateCurrentUser) are locked but carry no
- * producer evidence yet, so they must not gain callable client methods
- * until the producing slice closes. Future surfaces must not be
+ * consumer-pull event operations by MCP-F1-CORE-008, and the alpha.6 public
+ * profile operations (getPublicUser, updateCurrentUser) by MCP-F1-CORE-009,
+ * whose final tree (see SUPPORTED_PRODUCER_COMMIT) re-ran the full gate
+ * suite for all sixteen operations. Operations without producer evidence
+ * must not gain callable client methods, and future surfaces must not be
  * pre-invented here.
  */
 
@@ -53,7 +54,7 @@ export const SUPPORTED_CONTRACT_FILES = {
 
 export type SupportedContractFile = keyof typeof SUPPORTED_CONTRACT_FILES;
 
-/** The only operationIds this SDK exposes. getPublicUser/updateCurrentUser are intentionally absent (no producer evidence yet). */
+/** The only operationIds this SDK exposes. getPublicUser and updateCurrentUser are both exposed since MCP-F1-CORE-009. */
 export const SUPPORTED_OPERATIONS = [
   'getCurrentUser',
   'createDeveloperApp',
@@ -69,6 +70,8 @@ export const SUPPORTED_OPERATIONS = [
   'getCreditBalance',
   'listDeliveredEvents',
   'acknowledgeEvents',
+  'getPublicUser',
+  'updateCurrentUser',
 ] as const;
 
 export type SupportedOperation = (typeof SUPPORTED_OPERATIONS)[number];

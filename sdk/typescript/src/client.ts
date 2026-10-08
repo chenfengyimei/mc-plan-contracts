@@ -36,6 +36,8 @@ export type EventAcknowledgment =
   operations['acknowledgeEvents']['responses']['200']['content']['application/json'];
 export type EventAcknowledgmentRequest =
   operations['acknowledgeEvents']['requestBody']['content']['application/json'];
+export type UpdateCurrentUserRequest =
+  operations['updateCurrentUser']['requestBody']['content']['application/json'];
 
 /** Result envelope for consumeCredits: 201 means a fresh consumption, 200 an idempotent replay. */
 export interface ConsumptionCall {
@@ -84,7 +86,7 @@ function encodePathSegment(value: string): string {
 }
 
 /**
- * Producer-verified client for the fourteen supported Core 0.1.0-alpha.5
+ * Producer-verified client for the sixteen supported Core 0.1.0-alpha.6
  * operations. Every method maps 1:1 to a locked operationId; see
  * SUPPORTED_OPERATIONS.
  */
@@ -103,6 +105,54 @@ export class McPlanCoreClient {
 
   public async getCurrentUser(signal?: AbortSignal): Promise<PublicActor> {
     return this.getJson('/v1/me', 'user', signal);
+  }
+
+  /**
+   * Public creator profile read (prerelease). The locked surface has NO
+   * authentication: the request must not carry any credential header, and
+   * unknown, malformed, or non-ACTIVE identifiers all answer 404 without
+   * disclosing existence or account state. The SDK therefore requires no
+   * token provider on this client for this call.
+   */
+  public async getPublicUser(userId: string, signal?: AbortSignal): Promise<PublicActor> {
+    const headers = new Headers({ Accept: 'application/json' });
+    const response = await transportSend(
+      {
+        method: 'GET',
+        url: `${this.baseUrl}/v1/users/${encodePathSegment(userId)}`,
+        headers: Object.fromEntries(headers.entries()),
+        signal,
+        idempotent: true,
+      },
+      this.options,
+    );
+    if (response.status >= 200 && response.status < 300) {
+      return (await response.json()) as PublicActor;
+    }
+    throw await problemFromResponse(response);
+  }
+
+  /**
+   * Edit the calling user's public display name (prerelease). The body must
+   * carry ONLY display_name (1..80 characters); personal access tokens can
+   * never obtain profile:write, so this always requires an OIDC user token.
+   * Not retried automatically: an edit is not an idempotent replay.
+   */
+  public async updateCurrentUser(
+    body: UpdateCurrentUserRequest,
+    signal?: AbortSignal,
+  ): Promise<PublicActor> {
+    if (
+      typeof body?.display_name !== 'string' ||
+      body.display_name.length < 1 ||
+      body.display_name.length > 80
+    ) {
+      throw new TypeError('updateCurrentUser requires a display_name string of 1..80 characters');
+    }
+    return this.sendJson('PATCH', '/v1/me', { display_name: body.display_name }, 'user', {
+      idempotent: false,
+      signal,
+    });
   }
 
   // -- Developer Apps --------------------------------------------------------

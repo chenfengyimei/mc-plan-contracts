@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: MC Plan Core API
-  version: 0.1.0-alpha.5
+  version: 0.1.0-alpha.6
   description: >-
     Public business identity, profile, developer application, personal access
     token, entitlement, and credit surface. Keycloak remains the credential and
@@ -13,6 +13,9 @@ info:
     to authorized service consumers through the consumer-pull surface required
     by ADR-0011: cursor-paginated pulls of the oldest unacknowledged events with
     explicit, idempotent acknowledgments and at-least-once delivery.
+    Public creator profiles are readable by user id for ACTIVE accounts
+    only, and the owning user can edit the public display name with the
+    profile:write scope; personal access tokens can never obtain that scope.
   license:
     name: Apache License 2.0
     identifier: Apache-2.0
@@ -61,6 +64,49 @@ paths:
           $ref: "#/components/responses/AccessForbidden"
         default:
           $ref: "#/components/responses/Problem"
+    patch:
+      tags: [Profile]
+      operationId: updateCurrentUser
+      summary: Edit the current user's public profile display name
+      description: >-
+        Updates the calling user's public profile display name. The only
+        editable field in this prerelease is display_name; the request must
+        not carry any other field. Personal access tokens can never obtain
+        the profile:write scope, so edits always require an OIDC user
+        token. The response returns the updated public actor exactly as
+        GET /v1/me does.
+      x-mc-plan-stability: prerelease
+      security:
+        - userOAuth: [profile:write]
+        - personalAccessToken: [profile:write]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [display_name]
+              properties:
+                display_name:
+                  type: string
+                  minLength: 1
+                  maxLength: 80
+              additionalProperties: false
+      responses:
+        "200":
+          description: Updated public profile
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/common/actor.json
+        "400":
+          $ref: "#/components/responses/ValidationFailed"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/AccessForbidden"
+        default:
+          $ref: "#/components/responses/Problem"
   /v1/users/{userId}:
     parameters:
       - $ref: "#/components/parameters/UserId"
@@ -68,6 +114,14 @@ paths:
       tags: [Profile]
       operationId: getPublicUser
       summary: Return a public creator profile
+      description: >-
+        Returns the public actor of one MC Plan user by id without
+        authentication. Only ACTIVE business accounts are publicly
+        addressable: unknown, malformed and non-ACTIVE identifiers all
+        respond 404 without revealing whether the account exists or what
+        state it is in. The response never includes identity emails, OIDC
+        subjects, issuer claims or verification state.
+      x-mc-plan-stability: prerelease
       security: []
       responses:
         "200":
@@ -781,6 +835,7 @@ components:
           tokenUrl: https://identity.example.invalid/token
           scopes:
             profile:read: Read the current user's MC Plan profile
+            profile:write: Edit the current user's public profile display name
             credits:read: Read the current user's entitlements and credit balance
             developer-apps:read: Read the current user's developer applications and approved scopes
             developer-apps:manage: Create, update, approve scopes for, or revoke the current user's developer applications

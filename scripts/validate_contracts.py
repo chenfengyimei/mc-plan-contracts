@@ -159,7 +159,7 @@ PAT_GRANTABLE_SCOPES = {
 
 def validate_core_prerelease(document: dict[str, Any]) -> None:
     version = document.get("info", {}).get("version")
-    if version != "0.1.0-alpha.5":
+    if version != "0.1.0-alpha.6":
         raise ValueError("core.yaml must lock the consumer-pull event delivery slice as 0.1.0-alpha.5")
 
     operation = document.get("paths", {}).get("/v1/me", {}).get("get", {})
@@ -554,6 +554,82 @@ def validate_core_prerelease(document: dict[str, Any]) -> None:
     if event_ack.get("additionalProperties") is not False:
         raise ValueError("EventAcknowledgment must reject unexpected fields")
 
+    # --- Public profile slice (0.1.0-alpha.6, W02 phase one) --------------
+    user_flow_scopes = set()
+    for flow in schemes.get("userOAuth", {}).get("flows", {}).values():
+        user_flow_scopes.update(flow.get("scopes", {}).keys())
+    if "profile:write" not in user_flow_scopes:
+        raise ValueError("core.yaml userOAuth must declare the profile:write scope")
+    if "profile:write" in PAT_GRANTABLE_SCOPES:
+        raise ValueError("profile:write must never be personal-access-token grantable")
+
+    public_user_path = document.get("paths", {}).get("/v1/users/{userId}", {})
+    public_user_get = public_user_path.get("get", {})
+    if public_user_get.get("operationId") != "getPublicUser":
+        raise ValueError("core.yaml GET /v1/users/{userId} must keep operationId getPublicUser")
+    if public_user_get.get("x-mc-plan-stability") != "prerelease":
+        raise ValueError("core.yaml getPublicUser must be marked prerelease")
+    if public_user_get.get("security") != []:
+        raise ValueError("core.yaml getPublicUser must stay an unauthenticated public surface")
+    if (
+        public_user_get.get("responses", {})
+        .get("200", {})
+        .get("content", {})
+        .get("application/json", {})
+        .get("schema", {})
+        .get("$ref")
+        != "../schemas/common/actor.json"
+    ):
+        raise ValueError("core.yaml getPublicUser 200 must stay the locked PublicActor schema")
+    if "401" in public_user_get.get("responses", {}):
+        raise ValueError("core.yaml getPublicUser must not invent an authentication requirement")
+
+    me_path = document.get("paths", {}).get("/v1/me", {})
+    me_patch = me_path.get("patch", {})
+    if me_patch.get("operationId") != "updateCurrentUser":
+        raise ValueError("core.yaml PATCH /v1/me must keep operationId updateCurrentUser")
+    if me_patch.get("x-mc-plan-stability") != "prerelease":
+        raise ValueError("core.yaml PATCH /v1/me must be marked prerelease")
+    patch_security = me_patch.get("security", [])
+    if patch_security != [
+        {"userOAuth": ["profile:write"]},
+        {"personalAccessToken": ["profile:write"]},
+    ]:
+        raise ValueError(
+            "core.yaml PATCH /v1/me must require exactly the profile:write scope on both credential kinds"
+        )
+    patch_request = (
+        me_patch.get("requestBody", {})
+        .get("content", {})
+        .get("application/json", {})
+        .get("schema", {})
+    )
+    if (
+        patch_request.get("required") != ["display_name"]
+        or patch_request.get("additionalProperties") is not False
+    ):
+        raise ValueError("core.yaml PATCH /v1/me request must require only a display_name field")
+    display_name = patch_request.get("properties", {}).get("display_name", {})
+    if display_name.get("minLength") != 1 or display_name.get("maxLength") != 80:
+        raise ValueError("core.yaml PATCH /v1/me display_name must stay bounded to 1..80")
+    if (
+        me_patch.get("responses", {})
+        .get("200", {})
+        .get("content", {})
+        .get("application/json", {})
+        .get("schema", {})
+        .get("$ref")
+        != "../schemas/common/actor.json"
+    ):
+        raise ValueError("core.yaml PATCH /v1/me 200 must stay the locked PublicActor schema")
+    for status, ref in (
+        ("400", "#/components/responses/ValidationFailed"),
+        ("401", "#/components/responses/AuthenticationRequired"),
+        ("403", "#/components/responses/AccessForbidden"),
+    ):
+        if me_patch.get("responses", {}).get(status, {}).get("$ref") != ref:
+            raise ValueError(f"core.yaml PATCH /v1/me must keep the locked {status} problem")
+
     compatibility = (ROOT / "docs/compatibility.md").read_text(encoding="utf-8")
     if "Core `0.1.0-alpha.1`" not in compatibility or "预发布兼容收敛" not in compatibility:
         raise ValueError("docs/compatibility.md must classify Core 0.1.0-alpha.1")
@@ -574,6 +650,13 @@ def validate_core_prerelease(document: dict[str, Any]) -> None:
     ):
         raise ValueError(
             "docs/compatibility.md must classify Core 0.1.0-alpha.5 as a service event delivery addition"
+        )
+    if (
+        "Core `0.1.0-alpha.6`" not in compatibility
+        or "预发布兼容新增（公开资料与资料名编辑）" not in compatibility
+    ):
+        raise ValueError(
+            "docs/compatibility.md must classify Core 0.1.0-alpha.6 as a public profile addition"
         )
 
 

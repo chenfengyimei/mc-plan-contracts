@@ -38,6 +38,12 @@
 
 `MCP-F1-CORE-008` 已验证 Contracts 锁提交 `5ba7172` 与 Core `87ddd66` 的组合：十四个锁定文件无漂移，二十二项生产者契约测试涵盖既有全部表面回归与 EventPage/EventAcknowledgment/credit.changed.v1 按锁定 Schema 校验的事件拉取/确认响应；114 项单元、66 项 HTTP E2E 与 60 项隔离 PostgreSQL/Keycloak 集成验收通过，含发布时赋位顺序回归（T1 退避后发布、T2 业务事务迟提交、T3 双实例收敛、T4 双发布器真并发+并发消费者零丢失）与持久消费者去重证明；Ops 以固定镜像两轮独立真实验收通过。该组合不代表 Skin/Community 已成为消费者。
 
+## Core `0.1.0-alpha.6` 兼容分类
+
+本版本是在 `0.1.0-alpha.5` 之上的**预发布兼容新增（公开资料与资料名编辑）**：落实 W02 决策包第一阶段的 D1/D2/D4/D6（项目所有者 2026-10-07 采纳建议值；D3 年龄声明与 D5 用户权利端点的未决子项显式延后、不写入本版本）。`GET /v1/users/{userId}`（operationId `getPublicUser`）生产者化并标记 prerelease：保持已锁 PublicActor 三字段零新增（D1），无认证公开面，仅 ACTIVE 业务账号可公开寻址——未知、畸形与非 ACTIVE 标识一律 404 且不泄露账号存在性与状态；响应绝不包含身份邮箱、OIDC subject、issuer 或验证声明。新增 `PATCH /v1/me`（operationId `updateCurrentUser`，prerelease）：唯一可编辑字段为 `display_name`（1..80，请求体字段封闭），需要新 `profile:write` scope（userOAuth 与 personalAccessToken 双凭证面声明，但 PAT 授予目录不含该 scope，机器校验锁定 PAT 永不可获得——编辑实际只能由 OIDC 用户令牌完成）；响应保持 PublicActor；400/401/403 沿用既有锁定语义，不新增公共错误码。D4 维持现状：账户状态不新增公开字段，仍仅经 403 `ACCOUNT_UNAVAILABLE` 隐式表现。D6 批量公开资料查询本轮不冻结，待真实消费者需求另开契约先行工作流。`0.1.0-alpha.5` 已锁定的全部表面保持字节兼容。
+
+发布顺序为 Contracts `0.1.0-alpha.6` → Core 生产者与契约测试（`MCP-F1-CORE-009` 本切片）→ 后续 SDK/消费者工作流。回退时生产者可回到仅实现 `0.1.0-alpha.5` 的状态；不得保留一个与本契约语义不一致的公开资料或资料编辑表面。SDK 类型基线随 alpha.6 重生成（支持操作清单保持 14 个 producer 已验证操作）；`updateCurrentUser`/`getPublicUser` 因尚无 producer 证据不在 SDK 支持操作清单中暴露。
+
 ## 发布顺序
 
 契约预发布 → 生产者兼容实现 → SDK 预发布 → 消费者兼容实现 → 集成验证 → 稳定契约/SDK → 观察期后移除旧行为。
@@ -52,6 +58,7 @@
 | Core `0.1.0-alpha.3` | 预发布；每日权益生产者已实现并验证 | `8ba869a`：7 项契约、52 项 HTTP E2E、17 项 PostgreSQL 集成通过；锁提交 `fab1f3c` | 不适用 | 不适用 | 未生成 |
 | Core `0.1.0-alpha.4` | 预发布；只读余额与积分账本切片生产者已实现并验证 | `5508d60`：11 项契约、57 项 HTTP E2E、31 项 PostgreSQL 集成通过（含不可变账本并发/幂等/退款/权限/迁移与整数边界证据）；锁提交 `9a85b98` | 不适用 | 不适用 | `0.1.0-alpha.4`（`@mc-plan/core-sdk`，`MCP-F1-CONTRACTS-001`）：generate-check 零漂移、25 项单元、pack 干净工程消费、固定镜像 `5508d60` 真实 HTTP smoke 通过 |
 | Core `0.1.0-alpha.5` | 预发布；服务事件投递面生产者已实现并验证 | `87ddd66`（`MCP-F1-CORE-008`）：22 项契约、66 项 HTTP E2E、60 项 PostgreSQL/Keycloak 集成通过（发布时赋位/持久去重/真并发回归）；Ops 固定镜像两轮真实验收；锁提交 `5ba7172` | 不适用 | 不适用 | `0.1.0-alpha.5`（`@mc-plan/core-sdk`，`MCP-F1-CONTRACTS-004`）：14 个 producer 已验证操作（12 原有 + `listDeliveredEvents`/`acknowledgeEvents`，producer 锚定 `87ddd66`）；pack 干净工程消费与固定镜像 `87ddd66` 真实 HTTP smoke 通过 |
+| Core `0.1.0-alpha.6` | 预发布；公开资料读取与资料名编辑契约已锁，生产者实现中（`MCP-F1-CORE-009` 本切片） | 实现中（本切片，关闭时回填 SHA） | 不适用 | 不适用 | 类型基线随 alpha.6 重生成（`MCP-F1-CORE-009` 契约侧）；支持操作清单保持 14 个 producer 已验证操作，`getPublicUser`/`updateCurrentUser` 待生产者证据后另开 SDK 工作流评估暴露 |
 | Skin `0.1.0-alpha.1` | 预发布；匿名窗口五缺口契约已锁，生产者未实现（Skin 产线在 Q-001 决策后跟进） | 不适用 | 不适用 | 未实现（ADR-0012 匿名窗口语义，预计后续 Skin 线切片） | 未生成 |
 
 ## SDK 0.1.0-alpha.4 验收（MCP-F1-CONTRACTS-001，与 producer 验收分栏）

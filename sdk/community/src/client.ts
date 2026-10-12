@@ -137,13 +137,9 @@ export class McPlanCommunityClient {
     if (typeof body?.sha256 !== 'string' || !SHA256_PATTERN.test(body.sha256)) {
       throw new TypeError('createUploadSession requires a lowercase hex sha256 (64 characters)');
     }
-    return this.command(
-      'POST',
-      '/v1/upload-sessions',
-      body,
-      idempotencyKey,
-      { signal },
-    ) as Promise<UploadSession>;
+    return this.command<UploadSession>('POST', '/v1/upload-sessions', body, idempotencyKey, {
+      signal,
+    });
   }
 
   /**
@@ -158,13 +154,13 @@ export class McPlanCommunityClient {
     idempotencyKey: string,
     signal?: AbortSignal,
   ): Promise<CompletedUpload> {
-    return this.command(
+    return this.command<CompletedUpload>(
       'POST',
       `/v1/upload-sessions/${encodePathSegment(uploadId)}/complete`,
       undefined,
       idempotencyKey,
       { signal },
-    ) as Promise<CompletedUpload>;
+    );
   }
 
   // -- Resources ----------------------------------------------------------------
@@ -182,11 +178,13 @@ export class McPlanCommunityClient {
       throw new RangeError('createResource requires a title string of 1..120 characters');
     }
     if (typeof body?.description !== 'string' || body.description.length > 4000) {
-      throw new RangeError('createResource requires a description string of at most 4000 characters');
+      throw new RangeError(
+        'createResource requires a description string of at most 4000 characters',
+      );
     }
-    return this.command('POST', '/v1/resources', body, idempotencyKey, {
+    return this.command<CommunityResource>('POST', '/v1/resources', body, idempotencyKey, {
       signal,
-    }) as Promise<CommunityResource>;
+    });
   }
 
   /**
@@ -217,13 +215,13 @@ export class McPlanCommunityClient {
     if (typeof body?.license_id !== 'string' || body.license_id.length < 1) {
       throw new TypeError('createResourceVersion requires a non-empty license_id');
     }
-    return this.command(
+    return this.command<ResourceVersion>(
       'POST',
       `/v1/resources/${encodePathSegment(resourceId)}/versions`,
       body,
       idempotencyKey,
       { signal },
-    ) as Promise<ResourceVersion>;
+    );
   }
 
   /**
@@ -237,13 +235,13 @@ export class McPlanCommunityClient {
     idempotencyKey: string,
     signal?: AbortSignal,
   ): Promise<CommunityResource> {
-    return this.command(
+    return this.command<CommunityResource>(
       'POST',
       `/v1/resources/${encodePathSegment(resourceId)}/publish`,
       undefined,
       idempotencyKey,
       { signal },
-    ) as Promise<CommunityResource>;
+    );
   }
 
   /**

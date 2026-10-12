@@ -6,7 +6,7 @@
 
 ## 固定顺序
 
-2026-10-12 F2：按 Foundation ADR-0014 锁定 Community `0.1.0-alpha.1`，从尚无实现的 draft 收敛上传完成、作者查询和受控下载及既有资源七操作的可执行语义；不新增 F4 scope，不替所有者决定审核提供商/正式许可。Community producer 与 SDK/消费者证据仍按固定顺序后置，Core alpha.7/Skin alpha.1 不变。
+2026-10-12 F2：按 Foundation ADR-0014 锁定 Community `0.1.0-alpha.2`（alpha.1 之后显式补齐 Core profile:read 身份依赖），从尚无实现的 draft 收敛上传完成、作者查询和受控下载及既有资源七操作的可执行语义；不新增 F4 scope，不替所有者决定审核提供商/正式许可。Community producer 与 SDK/消费者证据仍按固定顺序后置，Core alpha.7/Skin alpha.1 不变。
 
 1. 从 Foundation/ADR 和数据所有者确认产品语义，拒绝推测性字段。
 2. 标记变更为兼容或破坏性，列出生产者、SDK、消费者和部署顺序。

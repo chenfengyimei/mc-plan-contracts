@@ -111,3 +111,11 @@ SDK 侧验收证据：`format:check`、`lint --max-warnings 0`、严格 `typeche
 ## Community `0.1.0-alpha.2` 身份依赖收敛
 
 alpha.1 尚无 producer、消费者或部署；alpha.2 在所有认证操作中显式加入既有 `profile:read`，与资源/上传 scope 同时要求，用于通过 Core `GET /v1/me` 获取稳定且仍可用的业务用户 ID。令牌需要同时被 Community 与 Core audience 接受。此项是**预发布安全语义收紧**，以新预发布版本和明确无部署迁移窗口处理；不发明用户 ID claim、不缓存或复制 Core 身份真相，不直接读其数据库。匿名公开读取不变，Core/Skin 契约与 Core SDK 17 操作均不变。生产者只能锁 alpha.2 后实现，alpha.1 不进入兼容组合。
+
+## Community alpha.2 本地 producer 与 Core 消费者组合
+
+`MCP-F2-COMMUNITY-001` 已在 Community `779803e` 实现 10 个 alpha.2 操作，锁定 Contracts 接口提交 `68b3d42` 的 11 个来源文件；公开类型由 OpenAPI 生成，未复制服务源码。验证：13 单元、2 契约、30 集成；真实 PostgreSQL/本地磁盘 S3 协议服务、隔离 Core 镜像及真实 Keycloak 26.8 S256 PKCE，实际字节封存、并发/归属/不可变性/删除与租约恢复均有证据。
+
+Core 消费组合单独记录：Community `779803e` → Core API alpha.7、Core 运行镜像 `mc-plan-core:mcp-f1-core-012-closeout`（代码树 `9303cc6`）→ Core `/v1/me`；每次受保护请求通过公开 API 解析活动用户，真实注销后同 token 被 Community 拒绝。使用生成的契约类型与响应验证，不跨库、不导入私有业务源码；该事实不等于 Community 已消费 Core SDK 的全部操作。
+
+审核 allow/reject 在本地测试中明确为 SYNTHETIC-MODERATION；运行入口 disabled，保持待审。这里登记的是本地工程组合，不是正式审核、目标对象存储、备份恢复、Community SDK 或完整 F2/F4 首发。Community 最终运行镜像与完成状态以工作流记录为准。Core/Skin 接口与 Core SDK 17 操作未改变，SDK 全量门禁及固定镜像真实 HTTP/Keycloak smoke 已再次通过。

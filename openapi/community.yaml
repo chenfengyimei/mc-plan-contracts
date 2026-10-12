@@ -1,8 +1,10 @@
 openapi: 3.1.0
 info:
   title: MC Plan Community API
-  version: 0.1.0-draft
-  description: Public resource, upload, publication, and discovery skeleton. Social and moderation surfaces are added only after their product states are approved.
+  version: 0.1.0-alpha.1
+  description: Prerelease local resource loop (ADR-0014). Uploads are sealed only after actual byte
+    verification. Publication stays pending until independent moderation allows it; absent or failed
+    moderation never publishes. Q-009 provider and Q-002 formal license text remain owner gates.
   license:
     name: Apache License 2.0
     identifier: Apache-2.0
@@ -18,11 +20,13 @@ security:
 paths:
   /v1/upload-sessions:
     post:
-      tags: [Uploads]
+      tags:
+        - Uploads
       operationId: createUploadSession
       summary: Create a short-lived direct upload session
       security:
-        - userOAuth: [upload:write]
+        - userOAuth:
+            - upload:write
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -31,20 +35,26 @@ paths:
           application/json:
             schema:
               type: object
-              required: [purpose, media_type, size_bytes, sha256]
+              required:
+                - purpose
+                - media_type
+                - size_bytes
+                - sha256
               properties:
                 purpose:
                   type: string
-                  enum: [resource_primary]
+                  enum:
+                    - resource_primary
                 media_type:
                   type: string
                   const: image/png
                 size_bytes:
                   type: integer
                   minimum: 1
+                  maximum: 1048576
                 sha256:
                   type: string
-                  pattern: "^[a-f0-9]{64}$"
+                  pattern: ^[a-f0-9]{64}$
               additionalProperties: false
       responses:
         "201":
@@ -54,12 +64,28 @@ paths:
               schema:
                 $ref: "#/components/schemas/UploadSession"
         "400":
-          $ref: "#/components/responses/Problem"
+          $ref: "#/components/responses/ValidationFailed"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/AccessForbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "503":
+          $ref: "#/components/responses/DependencyUnavailable"
         default:
           $ref: "#/components/responses/Problem"
+      description: Creates a private quarantine PUT URL. URL lifetime is deployment-configured and capped at one
+        hour. Idempotent replay keeps the original URL and expiry; use a new key after expiry. Same
+        actor/operation/key with a different canonical request is 409 IDEMPOTENCY_KEY_CONFLICT. No object is
+        public.
+      x-maturity: prerelease
   /v1/resources:
     get:
-      tags: [Resources]
+      tags:
+        - Resources
       operationId: listResources
       summary: List published resources
       security: []
@@ -69,33 +95,36 @@ paths:
           in: query
           schema:
             type: string
-            enum: [skin]
+            enum:
+              - skin
+        - $ref: "#/components/parameters/Limit"
       responses:
         "200":
-          description: Published resource page
+          description: Published resources in created_at DESC, resource_id DESC order
           content:
             application/json:
               schema:
-                type: object
-                required: [items, next_cursor]
-                properties:
-                  items:
-                    type: array
-                    items:
-                      $ref: ../schemas/community/resource.json
-                  next_cursor:
-                    type: [string, "null"]
-                additionalProperties: false
+                $ref: "#/components/schemas/ResourcePage"
         "400":
-          $ref: "#/components/responses/Problem"
+          $ref: "#/components/responses/ValidationFailed"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "503":
+          $ref: "#/components/responses/DependencyUnavailable"
         default:
           $ref: "#/components/responses/Problem"
+      description: Only published resources. Opaque cursors are bound to the resource type/author filter and stable
+        ordering; forged or mismatched cursors are 400 VALIDATION_FAILED. next_cursor is null when no
+        subsequent page exists.
+      x-maturity: prerelease
     post:
-      tags: [Resources]
+      tags:
+        - Resources
       operationId: createResource
       summary: Create an owned resource container
       security:
-        - userOAuth: [resource:write]
+        - userOAuth:
+            - resource:write
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -104,11 +133,15 @@ paths:
           application/json:
             schema:
               type: object
-              required: [type, title, description]
+              required:
+                - type
+                - title
+                - description
               properties:
                 type:
                   type: string
-                  enum: [skin]
+                  enum:
+                    - skin
                 title:
                   type: string
                   minLength: 1
@@ -125,19 +158,36 @@ paths:
               schema:
                 $ref: ../schemas/community/resource.json
         "400":
-          $ref: "#/components/responses/Problem"
+          $ref: "#/components/responses/ValidationFailed"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/AccessForbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "503":
+          $ref: "#/components/responses/DependencyUnavailable"
         default:
           $ref: "#/components/responses/Problem"
+      description: Creates an owned skin container. All writes require an active Core business identity and the
+        declared user scope; client-credentials tokens cannot impersonate users. Same-key/same-request replay
+        returns the original response without duplicate audit or resource; different request fingerprints
+        return 409.
+      x-maturity: prerelease
   /v1/resources/{resourceId}:
     parameters:
       - $ref: "#/components/parameters/ResourceId"
     get:
-      tags: [Resources]
+      tags:
+        - Resources
       operationId: getResource
       summary: Get a published resource or an owned non-public resource
       security:
         - {}
-        - userOAuth: [resource:read]
+        - userOAuth:
+            - resource:read
       responses:
         "200":
           description: Resource
@@ -145,7 +195,9 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [resource, versions]
+                required:
+                  - resource
+                  - versions
                 properties:
                   resource:
                     $ref: ../schemas/community/resource.json
@@ -154,34 +206,69 @@ paths:
                     items:
                       $ref: ../schemas/community/resource-version.json
                 additionalProperties: false
+        "400":
+          $ref: "#/components/responses/ValidationFailed"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/AccessForbidden"
         "404":
-          $ref: "#/components/responses/Problem"
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "503":
+          $ref: "#/components/responses/DependencyUnavailable"
         default:
           $ref: "#/components/responses/Problem"
+      description: Published reads are anonymous and include only previously published versions. Authenticated
+        owners with resource:read may see their private candidate versions. Unknown or foreign non-public
+        resources return 404 without exposing their state.
+      x-maturity: prerelease
     delete:
-      tags: [Resources]
+      tags:
+        - Resources
       operationId: unpublishResource
       summary: Immediately unpublish an owned resource and schedule file cleanup
       security:
-        - userOAuth: [resource:write]
+        - userOAuth:
+            - resource:write
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       responses:
         "204":
           description: Resource is no longer public
+        "400":
+          $ref: "#/components/responses/ValidationFailed"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/AccessForbidden"
         "404":
-          $ref: "#/components/responses/Problem"
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "503":
+          $ref: "#/components/responses/DependencyUnavailable"
         default:
           $ref: "#/components/responses/Problem"
+      description: Immediately makes all public reads and new downloads unavailable. Unpublishing is terminal and
+        cannot be reversed by late moderation jobs. Same-key replay and repeated owner requests return 204
+        without duplicate audit/cleanup. Files are queued for deletion after seven days; storage failure
+        retains retry evidence. Backup expiry is an independent operational gate.
+      x-maturity: prerelease
   /v1/resources/{resourceId}/versions:
     parameters:
       - $ref: "#/components/parameters/ResourceId"
     post:
-      tags: [Resources]
+      tags:
+        - Resources
       operationId: createResourceVersion
       summary: Attach a validated upload as an immutable resource version
       security:
-        - userOAuth: [resource:write]
+        - userOAuth:
+            - resource:write
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -190,7 +277,12 @@ paths:
           application/json:
             schema:
               type: object
-              required: [upload_id, version, schema_version, metadata, license_id]
+              required:
+                - upload_id
+                - version
+                - schema_version
+                - metadata
+                - license_id
               properties:
                 upload_id:
                   type: string
@@ -198,6 +290,7 @@ paths:
                 version:
                   type: string
                   minLength: 1
+                  maxLength: 80
                 schema_version:
                   type: integer
                   const: 1
@@ -215,18 +308,38 @@ paths:
               schema:
                 $ref: ../schemas/community/resource-version.json
         "400":
-          $ref: "#/components/responses/Problem"
+          $ref: "#/components/responses/ValidationFailed"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/AccessForbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "503":
+          $ref: "#/components/responses/DependencyUnavailable"
         default:
           $ref: "#/components/responses/Problem"
+      description: Accepts a still-valid sealed upload owned by the resource author and an explicitly configured
+        approved license. Metadata must match the actual decoded layout and second-layer presence.
+        Version/file/license snapshot values are append-only. Same upload cannot bind twice; duplicate version
+        strings or invalid resource transitions are 409 RESOURCE_STATE_CONFLICT. An existing published version
+        remains visible while a replacement is reviewed.
+      x-maturity: prerelease
   /v1/resources/{resourceId}/publish:
     parameters:
       - $ref: "#/components/parameters/ResourceId"
     post:
-      tags: [Resources]
+      tags:
+        - Resources
       operationId: publishResource
       summary: Request publication after the current version passes validation
       security:
-        - userOAuth: [resource:write]
+        - userOAuth:
+            - resource:write
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       responses:
@@ -236,10 +349,142 @@ paths:
             application/json:
               schema:
                 $ref: ../schemas/community/resource.json
+        "400":
+          $ref: "#/components/responses/ValidationFailed"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/AccessForbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
         "409":
-          $ref: "#/components/responses/Problem"
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "503":
+          $ref: "#/components/responses/DependencyUnavailable"
         default:
           $ref: "#/components/responses/Problem"
+      description: "Queues independent moderation of the latest candidate. 202 is acceptance, not approval: absent,
+        timed-out or failed moderation leaves pending_moderation. Approval alone may set
+        published/current_version_id; rejection of a replacement leaves the old published version intact.
+        Invalid transitions are 409 RESOURCE_STATE_CONFLICT. Client assertions do not approve publication."
+      x-maturity: prerelease
+  /v1/upload-sessions/{uploadId}/complete:
+    parameters:
+      - name: uploadId
+        in: path
+        required: true
+        schema: &a1
+          type: string
+          minLength: 1
+    post:
+      tags:
+        - Uploads
+      operationId: completeUploadSession
+      summary: Verify and seal an owned upload
+      security:
+        - userOAuth:
+            - upload:write
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      description: No request body. Re-reads actual bytes, requires exact size/SHA-256 and a decodable 64x64 PNG,
+        then seals those bytes under a private server-only key. Unknown, foreign or expired uploads are 404
+        NOT_FOUND; missing bytes are 409 UPLOAD_NOT_READY, invalid bytes are 400 UPLOAD_INVALID. A sealed
+        upload can bind to only one version. The upload PUT URL cannot modify sealed bytes.
+      responses:
+        "200":
+          description: Verified private upload
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CompletedUpload"
+        "400":
+          $ref: "#/components/responses/ValidationFailed"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/AccessForbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "503":
+          $ref: "#/components/responses/DependencyUnavailable"
+        default:
+          $ref: "#/components/responses/Problem"
+      x-maturity: prerelease
+  /v1/users/{userId}/resources:
+    parameters:
+      - name: userId
+        in: path
+        required: true
+        schema: *a1
+    get:
+      tags:
+        - Resources
+      operationId: listAuthorResources
+      summary: List an author's published resources
+      security: []
+      parameters:
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: Published author resource page
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResourcePage"
+        "400":
+          $ref: "#/components/responses/ValidationFailed"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "503":
+          $ref: "#/components/responses/DependencyUnavailable"
+        default:
+          $ref: "#/components/responses/Problem"
+      description: User IDs are opaque references. The response never exposes Core private fields; an unknown author
+        returns an empty page.
+      x-maturity: prerelease
+  /v1/resources/{resourceId}/versions/{versionId}/download:
+    parameters:
+      - $ref: "#/components/parameters/ResourceId"
+      - name: versionId
+        in: path
+        required: true
+        schema: *a1
+    get:
+      tags:
+        - Resources
+      operationId: downloadResourceVersion
+      summary: Download a published immutable skin version
+      security: []
+      description: Community checks visibility at each request. Unknown, mismatched, unpublished or cleaned
+        addressing returns 404 NOT_FOUND. Streams exact verified PNG bytes with Content-Disposition
+        attachment, X-Content-Type-Options nosniff, sandbox CSP and Cache-Control no-store. No public
+        object-store URL is returned.
+      responses:
+        "200":
+          description: Verified immutable PNG
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+        "400":
+          $ref: "#/components/responses/ValidationFailed"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "503":
+          $ref: "#/components/responses/DependencyUnavailable"
+        default:
+          $ref: "#/components/responses/Problem"
+      x-maturity: prerelease
 components:
   parameters:
     ResourceId:
@@ -254,6 +499,8 @@ components:
       in: query
       schema:
         type: string
+        minLength: 1
+        maxLength: 2048
     IdempotencyKey:
       name: Idempotency-Key
       in: header
@@ -262,10 +509,22 @@ components:
         type: string
         minLength: 8
         maxLength: 200
+    Limit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
   schemas:
     UploadSession:
       type: object
-      required: [upload_id, upload_url, expires_at]
+      required:
+        - upload_id
+        - upload_url
+        - expires_at
+        - upload_headers
       properties:
         upload_id:
           type: string
@@ -276,6 +535,51 @@ components:
         expires_at:
           type: string
           format: date-time
+        upload_headers:
+          type: object
+          description: Headers to send verbatim with a binary PUT to upload_url; the client supplies the exact declared
+            byte length.
+          additionalProperties:
+            type: string
+      additionalProperties: false
+    ResourcePage:
+      type: object
+      required:
+        - items
+        - next_cursor
+      properties:
+        items:
+          type: array
+          items:
+            $ref: ../schemas/community/resource.json
+        next_cursor:
+          type:
+            - string
+            - "null"
+      additionalProperties: false
+    CompletedUpload:
+      type: object
+      required:
+        - upload_id
+        - media_type
+        - size_bytes
+        - sha256
+        - validated_at
+      properties:
+        upload_id: *a1
+        media_type:
+          type: string
+          const: image/png
+        size_bytes:
+          type: integer
+          minimum: 1
+          maximum: 1048576
+        sha256:
+          type: string
+          pattern: ^[a-f0-9]{64}$
+        validated_at:
+          type: string
+          format: date-time
       additionalProperties: false
   responses:
     Problem:
@@ -284,6 +588,66 @@ components:
         application/problem+json:
           schema:
             $ref: ../schemas/common/problem.json
+    AuthenticationRequired:
+      description: Authentication required
+      content:
+        application/problem+json:
+          schema:
+            $ref: ../schemas/common/problem.json
+      x-error-codes:
+        - AUTHENTICATION_REQUIRED
+    AccessForbidden:
+      description: Access forbidden
+      content:
+        application/problem+json:
+          schema:
+            $ref: ../schemas/common/problem.json
+      x-error-codes:
+        - INSUFFICIENT_SCOPE
+        - ACCOUNT_UNAVAILABLE
+    NotFound:
+      description: Not found
+      content:
+        application/problem+json:
+          schema:
+            $ref: ../schemas/common/problem.json
+      x-error-codes:
+        - NOT_FOUND
+    ValidationFailed:
+      description: Invalid input or uploaded bytes
+      content:
+        application/problem+json:
+          schema:
+            $ref: ../schemas/common/problem.json
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UPLOAD_INVALID
+    Conflict:
+      description: Conflicting command, state or missing upload bytes
+      content:
+        application/problem+json:
+          schema:
+            $ref: ../schemas/common/problem.json
+      x-error-codes:
+        - IDEMPOTENCY_KEY_CONFLICT
+        - RESOURCE_STATE_CONFLICT
+        - UPLOAD_NOT_READY
+    RateLimited:
+      description: Request limit exceeded
+      content:
+        application/problem+json:
+          schema:
+            $ref: ../schemas/common/problem.json
+      x-error-codes:
+        - RATE_LIMITED
+    DependencyUnavailable:
+      description: Required dependency unavailable
+      content:
+        application/problem+json:
+          schema:
+            $ref: ../schemas/common/problem.json
+      x-error-codes:
+        - DEPENDENCY_UNAVAILABLE
   securitySchemes:
     userOAuth:
       type: oauth2

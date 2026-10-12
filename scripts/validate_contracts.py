@@ -695,6 +695,50 @@ def validate_core_prerelease(document: dict[str, Any]) -> None:
         )
 
 
+def validate_community_prerelease(document: dict[str, Any]) -> None:
+    if document["info"]["version"] != "0.1.0-alpha.1":
+        raise ValueError("community.yaml must lock 0.1.0-alpha.1")
+    operations = {operation["operationId"]: operation for _, _, operation in iter_operations(document)}
+    expected = {"createUploadSession", "completeUploadSession", "listResources", "listAuthorResources",
+                "createResource", "getResource", "unpublishResource", "createResourceVersion",
+                "publishResource", "downloadResourceVersion"}
+    if set(operations) != expected:
+        raise ValueError("Community alpha.1 operation set drift")
+    upload = operations["createUploadSession"]["requestBody"]["content"]["application/json"]["schema"]
+    if upload["additionalProperties"] is not False or upload["properties"]["size_bytes"].get("maximum") != 1048576:
+        raise ValueError("Community uploads must be closed objects capped at 1 MiB")
+    for name, scope in (("createUploadSession", "upload:write"), ("completeUploadSession", "upload:write"),
+                        ("createResource", "resource:write"), ("createResourceVersion", "resource:write"),
+                        ("publishResource", "resource:write"), ("unpublishResource", "resource:write")):
+        op = operations[name]
+        if op["security"] != [{"userOAuth": [scope]}]:
+            raise ValueError(f"{name} must require userOAuth {scope}")
+        if not any(p.get("$ref") == "#/components/parameters/IdempotencyKey" for p in op.get("parameters", [])):
+            raise ValueError(f"{name} must require Idempotency-Key")
+        if not {"400", "401", "403", "409", "503"}.issubset(op["responses"]):
+            raise ValueError(f"{name} is missing bounded error semantics")
+    for name in ("listResources", "listAuthorResources", "downloadResourceVersion"):
+        if operations[name]["security"] != []:
+            raise ValueError(f"{name} must allow anonymous published reads")
+    for name in ("completeUploadSession", "publishResource", "unpublishResource"):
+        if "requestBody" in operations[name]:
+            raise ValueError(f"{name} must not accept unapproved command fields")
+    if "content" in operations["unpublishResource"]["responses"]["204"]:
+        raise ValueError("Community unpublish 204 must be bodyless")
+    if set(operations["downloadResourceVersion"]["responses"]["200"]["content"]) != {"image/png"}:
+        raise ValueError("Community downloads must be PNG bytes")
+    if "upload_headers" not in document["components"]["schemas"]["UploadSession"]["required"]:
+        raise ValueError("UploadSession must tell clients the signed upload headers")
+    limits = document["components"]["parameters"]["Limit"]["schema"]
+    if (limits.get("minimum"), limits.get("maximum"), limits.get("default")) != (1, 100, 20):
+        raise ValueError("Community page limit drift")
+    validator_for(upload)(upload).validate(json.loads(
+        (ROOT / "examples/community/create-upload.json").read_text(encoding="utf-8")))
+    completed = document["components"]["schemas"]["CompletedUpload"]
+    validator_for(completed)(completed).validate(json.loads(
+        (ROOT / "examples/community/complete-upload.json").read_text(encoding="utf-8")))
+
+
 def validate_openapi() -> tuple[int, set[str]]:
     sources = sorted((ROOT / "openapi").glob("*.yaml"))
     operation_ids: set[str] = set()
@@ -726,6 +770,8 @@ def validate_openapi() -> tuple[int, set[str]]:
         validate_security_scopes(source, document)
         if source.name == "core.yaml":
             validate_core_prerelease(document)
+        elif source.name == "community.yaml":
+            validate_community_prerelease(document)
 
     return len(sources), operation_ids
 

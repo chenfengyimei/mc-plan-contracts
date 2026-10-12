@@ -112,7 +112,9 @@ export class McPlanProblemError extends Error {
   public readonly httpStatus: number;
 
   public constructor(problem: McPlanProblem, httpStatus: number) {
-    super(`Community request failed: ${problem.status} ${problem.code} (trace_id=${problem.trace_id})`);
+    super(
+      `Community request failed: ${problem.status} ${problem.code} (trace_id=${problem.trace_id})`,
+    );
     this.name = 'McPlanProblemError';
     this.problem = problem;
     this.httpStatus = httpStatus;

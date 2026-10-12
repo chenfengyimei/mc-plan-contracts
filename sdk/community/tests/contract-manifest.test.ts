@@ -32,9 +32,12 @@ describe('supported contract manifest', () => {
       'downloadResourceVersion',
     ]);
     expect(SUPPORTED_OPERATIONS).not.toContain('someFutureOperation');
-    expect(SUPPORTED_CONTRACT_VERSION).toBe('0.1.0-alpha.2');
-    expect(SUPPORTED_CONTRACT_LOCK_COMMIT).toBe('68b3d42065bbfcee30545a02780a7eb8f931bc1f');
-    // Producer evidence for all ten supported operations comes from the
+    // The alpha.3 inline preview operation is locked in the contract but has
+    // no producer implementation yet, so it must not be exposed.
+    expect(SUPPORTED_OPERATIONS).not.toContain('previewResourceVersion');
+    expect(SUPPORTED_CONTRACT_VERSION).toBe('0.1.0-alpha.3');
+    expect(SUPPORTED_CONTRACT_LOCK_COMMIT).toBe('664fb9de657c1fc4b5c9b2fbce300d8dd0b393e6');
+    // Producer evidence for the ten supported operations comes from the
     // closed MCP-F2-COMMUNITY-001 slice whose final tree implements the whole
     // alpha.2 surface and passed the full producer gate suite plus the
     // canonical runtime image acceptance.

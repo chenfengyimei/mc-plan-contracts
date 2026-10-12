@@ -185,6 +185,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/resources/{resourceId}/versions/{versionId}/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                resourceId: components["parameters"]["ResourceId"];
+                versionId: string;
+            };
+            cookie?: never;
+        };
+        /**
+         * Preview a published immutable skin version inline
+         * @description The inline rendering face of the download surface. Visibility is checked at each request with identical 404 semantics (unknown, mismatched, unpublished or cleaned addressing is indistinguishable), and the exact verified PNG bytes stream with Content-Disposition inline, X-Content-Type-Options nosniff, sandbox CSP and Cache-Control no-store, so public pages can use the endpoint as an img source without ever exposing a long-lived public object-store URL. The bytes are identical to the download surface; only the disposition differs.
+         */
+        get: operations["previewResourceVersion"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -695,6 +718,34 @@ export interface operations {
         requestBody?: never;
         responses: {
             /** @description Verified immutable PNG */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/png": string;
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            503: components["responses"]["DependencyUnavailable"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    previewResourceVersion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                resourceId: components["parameters"]["ResourceId"];
+                versionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Verified immutable PNG for inline rendering */
             200: {
                 headers: {
                     [name: string]: unknown;

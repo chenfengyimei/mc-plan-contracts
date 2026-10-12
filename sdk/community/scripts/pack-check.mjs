@@ -71,7 +71,7 @@ try {
   writeFileSync(
     path.join(consumer, 'sample.ts'),
     [
-      "import {",
+      'import {',
       '  createMcPlanCommunityClient,',
       '  SUPPORTED_OPERATIONS,',
       '  generateIdempotencyKey,',

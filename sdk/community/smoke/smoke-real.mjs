@@ -161,6 +161,19 @@ function assert(condition, message) {
   }
 }
 
+/**
+ * Order-insensitive canonical JSON: the producer replays the recorded
+ * response through a jsonb column, which does not preserve key order.
+ */
+function canonicalJson(value) {
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(',')}]`;
+  if (value !== null && typeof value === 'object') {
+    const entries = Object.entries(value).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
+    return `{${entries.map(([k, v]) => `${JSON.stringify(k)}:${canonicalJson(v)}`).join(',')}}`;
+  }
+  return JSON.stringify(value);
+}
+
 function assertEqual(actual, expected, label) {
   if (actual !== expected) {
     throw new Error(`SMOKE ASSERTION FAILED: ${label}: expected ${expected}, got ${actual}`);
@@ -606,7 +619,7 @@ async function main() {
     'replay-key-resource-a',
   );
   assert(
-    JSON.stringify(createdWithKey) === JSON.stringify(replayedWithKey),
+    canonicalJson(createdWithKey) === canonicalJson(replayedWithKey),
     'same-key createResource replay returns the identical recorded response',
   );
   await expectProblem(
@@ -651,11 +664,7 @@ async function main() {
     session.upload_id,
     'complete-replay-key-1',
   );
-  assertEqual(
-    JSON.stringify(completedAgain),
-    JSON.stringify(completed),
-    'complete replay identical',
-  );
+  assertEqual(canonicalJson(completedAgain), canonicalJson(completed), 'complete replay identical');
 
   // 9.2 [REAL-PRODUCER-HTTP] A session whose declared bytes are not a PNG
   // seals nothing: complete re-reads the actual bytes and answers UPLOAD_INVALID.

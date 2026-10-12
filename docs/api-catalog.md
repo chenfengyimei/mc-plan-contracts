@@ -10,7 +10,7 @@
 
 ## Community v1
 
-`0.1.0-alpha.2` 已锁定（ADR-0014）：createUploadSession、completeUploadSession、createResource、createResourceVersion、publishResource、getResource、listResources、listAuthorResources、downloadResourceVersion、unpublishResource，共 10 操作。上传上限 1 MiB、真实字节验证及服务端封存、版本/许可不可变、确定分页与受控下载、归属/scope/幂等错误和审核失败保持待审已明确定义；producer 尚待验收，Core SDK 不暴露社区操作。
+`0.1.0-alpha.2` 已锁定（ADR-0014）：createUploadSession、completeUploadSession、createResource、createResourceVersion、publishResource、getResource、listResources、listAuthorResources、downloadResourceVersion、unpublishResource，共 10 操作。上传上限 1 MiB、真实字节验证及服务端封存、版本/许可不可变、确定分页与受控下载、归属/scope/幂等错误和审核失败保持待审已明确定义；producer 已由 `MCP-F2-COMMUNITY-001` 验收（community `70e55a1`，运行镜像 `mc-plan-community:mcp-f2-community-001-779803e`），首个 Community TypeScript SDK `@mc-plan/community-sdk@0.1.0-alpha.2`（`sdk/community`，`MCP-F2-CONTRACTS-002`）已暴露全部 10 个 producer 已验证操作（producer 锚定 `70e55a1`；真实消费者集成验收另行立项，不因 SDK 交付而视为已支持）。
 
 后续 F2/F4 分批决定：标签、搜索、点赞、收藏、评论、关注、信息流、排行、通知、举报、处置与申诉。每批先明确状态机和权限，再扩展 OpenAPI。
 

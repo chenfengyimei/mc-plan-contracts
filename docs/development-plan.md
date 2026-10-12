@@ -2,11 +2,11 @@
 
 状态：Active
 
-当前里程碑：F1 Core `0.1.0-alpha.5` 服务事件投递契约（ADR-0011 消费者拉取，`MCP-F1-CONTRACTS-002`）已锁定；`0.1.0-alpha.4` 积分只读余额预发布契约与不可变积分账本生产者（Core `5508d60`，`MCP-F1-CORE-005`）已验证；首个 TypeScript SDK 切片（`@mc-plan/core-sdk`，12 个已验收操作，`MCP-F1-CONTRACTS-001`）已实现并对固定镜像完成真实 HTTP 验收；事件投递面生产者已由 `MCP-F1-CORE-008`（Core `87ddd66`）关闭，`MCP-F1-CONTRACTS-004` 已把事件两操作暴露进 SDK（14 个 producer 已验证操作，producer 锚定 `87ddd66`，pack 干净工程消费与固定镜像真实 HTTP smoke 通过）；Skin/Community 消费者按后续工作流推进；Skin `0.1.0-alpha.1`（ADR-0012 匿名窗口五缺口，`MCP-F1-CONTRACTS-003`）已锁定，Skin 产线生产者在 Q-001 决策后跟进。
+当前里程碑：F1 Core `0.1.0-alpha.5` 服务事件投递契约（ADR-0011 消费者拉取，`MCP-F1-CONTRACTS-002`）已锁定；`0.1.0-alpha.4` 积分只读余额预发布契约与不可变积分账本生产者（Core `5508d60`，`MCP-F1-CORE-005`）已验证；首个 TypeScript SDK 切片（`@mc-plan/core-sdk`，12 个已验收操作，`MCP-F1-CONTRACTS-001`）已实现并对固定镜像完成真实 HTTP 验收；事件投递面生产者已由 `MCP-F1-CORE-008`（Core `87ddd66`）关闭，`MCP-F1-CONTRACTS-004` 已把事件两操作暴露进 SDK（14 个 producer 已验证操作，producer 锚定 `87ddd66`，pack 干净工程消费与固定镜像真实 HTTP smoke 通过）；Skin/Community 消费者按后续工作流推进；Skin `0.1.0-alpha.1`（ADR-0012 匿名窗口五缺口，`MCP-F1-CONTRACTS-003`）已锁定，Skin 产线生产者在 Q-001 决策后跟进；Community `0.1.0-alpha.2`（ADR-0014）已锁定且 producer 已由 `MCP-F2-COMMUNITY-001` 验收（community `70e55a1` + 固定镜像 `mcp-f2-community-001-779803e`），首个 Community TypeScript SDK（`sdk/community`，`@mc-plan/community-sdk@0.1.0-alpha.2`，10 个 producer 已验证操作，`MCP-F2-CONTRACTS-002`）已交付并完成固定镜像真实 HTTP 验收。
 
 ## 固定顺序
 
-2026-10-12 F2：按 Foundation ADR-0014 锁定 Community `0.1.0-alpha.2`（alpha.1 之后显式补齐 Core profile:read 身份依赖），从尚无实现的 draft 收敛上传完成、作者查询和受控下载及既有资源七操作的可执行语义；不新增 F4 scope，不替所有者决定审核提供商/正式许可。Community producer 与 SDK/消费者证据仍按固定顺序后置，Core alpha.7/Skin alpha.1 不变。
+2026-10-12 F2：按 Foundation ADR-0014 锁定 Community `0.1.0-alpha.2`（alpha.1 之后显式补齐 Core profile:read 身份依赖），从尚无实现的 draft 收敛上传完成、作者查询和受控下载及既有资源七操作的可执行语义；不新增 F4 scope，不替所有者决定审核提供商/正式许可。Community producer 已验收（`MCP-F2-COMMUNITY-001`，community `70e55a1`），Community SDK 已由 `MCP-F2-CONTRACTS-002` 交付；真实消费者证据仍按固定顺序后置，Core alpha.7/Skin alpha.1 不变。
 
 1. 从 Foundation/ADR 和数据所有者确认产品语义，拒绝推测性字段。
 2. 标记变更为兼容或破坏性，列出生产者、SDK、消费者和部署顺序。
@@ -41,6 +41,19 @@ pnpm --dir sdk/typescript test
 pnpm --dir sdk/typescript build
 pnpm --dir sdk/typescript pack:check       # pnpm pack + 干净临时工程消费验证
 pnpm --dir sdk/typescript smoke:real       # 固定 producer 镜像 + 隔离 PostgreSQL 的真实 HTTP 验收
+```
+
+Community SDK 工程（`sdk/community`，`MCP-F2-CONTRACTS-002` 引入后追加，命令与 Core SDK 同构）：
+
+```sh
+pnpm --dir sdk/community format:check
+pnpm --dir sdk/community lint
+pnpm --dir sdk/community typecheck
+pnpm --dir sdk/community generate:check   # openapi-typescript 重跑，src/generated diff 必须为空
+pnpm --dir sdk/community test
+pnpm --dir sdk/community build
+pnpm --dir sdk/community pack:check       # pnpm pack + 干净临时工程消费验证
+pnpm --dir sdk/community smoke:real       # 固定 community 镜像 + 独立 Core 镜像 + 隔离 PostgreSQL/S3 协议服务的真实 HTTP 验收
 ```
 
 引入 SDK 工程后再增加生成差异、类型检查、单元测试和消费者契约测试；命令必须写回本文件与 `AGENTS.md`。

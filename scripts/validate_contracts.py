@@ -693,17 +693,24 @@ def validate_core_prerelease(document: dict[str, Any]) -> None:
         raise ValueError(
             "docs/compatibility.md must classify Core 0.1.0-alpha.7 as a deactivation rights addition"
         )
+    if (
+        "Community `0.1.0-alpha.3`" not in compatibility
+        or "预发布兼容新增（匿名内联预览）" not in compatibility
+    ):
+        raise ValueError(
+            "docs/compatibility.md must classify Community 0.1.0-alpha.3 as an anonymous inline preview addition"
+        )
 
 
 def validate_community_prerelease(document: dict[str, Any]) -> None:
-    if document["info"]["version"] != "0.1.0-alpha.2":
-        raise ValueError("community.yaml must lock 0.1.0-alpha.2")
+    if document["info"]["version"] != "0.1.0-alpha.3":
+        raise ValueError("community.yaml must lock 0.1.0-alpha.3")
     operations = {operation["operationId"]: operation for _, _, operation in iter_operations(document)}
     expected = {"createUploadSession", "completeUploadSession", "listResources", "listAuthorResources",
                 "createResource", "getResource", "unpublishResource", "createResourceVersion",
-                "publishResource", "downloadResourceVersion"}
+                "publishResource", "downloadResourceVersion", "previewResourceVersion"}
     if set(operations) != expected:
-        raise ValueError("Community alpha.1 operation set drift")
+        raise ValueError("Community alpha.3 operation set drift")
     upload = operations["createUploadSession"]["requestBody"]["content"]["application/json"]["schema"]
     if upload["additionalProperties"] is not False or upload["properties"]["size_bytes"].get("maximum") != 1048576:
         raise ValueError("Community uploads must be closed objects capped at 1 MiB")
@@ -717,9 +724,18 @@ def validate_community_prerelease(document: dict[str, Any]) -> None:
             raise ValueError(f"{name} must require Idempotency-Key")
         if not {"400", "401", "403", "409", "503"}.issubset(op["responses"]):
             raise ValueError(f"{name} is missing bounded error semantics")
-    for name in ("listResources", "listAuthorResources", "downloadResourceVersion"):
+    for name in ("listResources", "listAuthorResources", "downloadResourceVersion", "previewResourceVersion"):
         if operations[name]["security"] != []:
             raise ValueError(f"{name} must allow anonymous published reads")
+    preview = operations["previewResourceVersion"]
+    if "requestBody" in preview:
+        raise ValueError("previewResourceVersion must be bodyless")
+    if set(preview["responses"]["200"]["content"]) != {"image/png"}:
+        raise ValueError("Community previews must stream PNG bytes")
+    if not {"400", "404", "429", "503"}.issubset(preview["responses"]):
+        raise ValueError("previewResourceVersion is missing bounded error semantics")
+    if "404" not in operations["downloadResourceVersion"]["responses"]:
+        raise ValueError("Community downloads must keep 404 semantics")
     for name in ("completeUploadSession", "publishResource", "unpublishResource"):
         if "requestBody" in operations[name]:
             raise ValueError(f"{name} must not accept unapproved command fields")

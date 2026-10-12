@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: MC Plan Community API
-  version: 0.1.0-alpha.2
+  version: 0.1.0-alpha.3
   description: Prerelease local resource loop (ADR-0014). Uploads are sealed only after actual byte
     verification. Publication stays pending until independent moderation allows it; absent or failed
     moderation never publishes. Q-009 provider and Q-002 formal license text remain owner gates. Authenticated
@@ -478,6 +478,44 @@ paths:
       responses:
         "200":
           description: Verified immutable PNG
+          content:
+            image/png:
+              schema:
+                type: string
+                format: binary
+        "400":
+          $ref: "#/components/responses/ValidationFailed"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "503":
+          $ref: "#/components/responses/DependencyUnavailable"
+        default:
+          $ref: "#/components/responses/Problem"
+      x-maturity: prerelease
+  /v1/resources/{resourceId}/versions/{versionId}/preview:
+    parameters:
+      - $ref: "#/components/parameters/ResourceId"
+      - name: versionId
+        in: path
+        required: true
+        schema: *a1
+    get:
+      tags:
+        - Resources
+      operationId: previewResourceVersion
+      summary: Preview a published immutable skin version inline
+      security: []
+      description: The inline rendering face of the download surface. Visibility is checked at each
+        request with identical 404 semantics (unknown, mismatched, unpublished or cleaned addressing is
+        indistinguishable), and the exact verified PNG bytes stream with Content-Disposition inline,
+        X-Content-Type-Options nosniff, sandbox CSP and Cache-Control no-store, so public pages can use
+        the endpoint as an img source without ever exposing a long-lived public object-store URL. The
+        bytes are identical to the download surface; only the disposition differs.
+      responses:
+        "200":
+          description: Verified immutable PNG for inline rendering
           content:
             image/png:
               schema:

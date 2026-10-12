@@ -74,6 +74,7 @@
 | Core `0.1.0-alpha.7` | 预发布；注销权利端点契约已锁，生产者已实现并验证 | `cf95e3e`（`MCP-F1-CORE-010`）：25 项契约、86 项 HTTP E2E、68 项 PostgreSQL/Keycloak 集成通过（零迁移、CLOSED+同事务审计、注销后 403/404 语义）；锁提交 `56bff96` | 不适用 | 不适用 | `0.1.0-alpha.7`（`@mc-plan/core-sdk`，`MCP-F1-CONTRACTS-006`）：17 个 producer 已验证操作（16 原有 + `deactivateCurrentUser`，producer 锚定 `cf95e3e`）；pack 干净工程消费与固定镜像 `mc-plan-core:mcp-f1-core-010-cf95e3e` 真实 HTTP smoke 通过（含真实 Keycloak/PKCE 注销链） |
 | Skin `0.1.0-alpha.1` | 预发布；匿名窗口五缺口契约已锁，生产者未实现（Skin 产线在 Q-001 决策后跟进） | 不适用 | 不适用 | 未实现（ADR-0012 匿名窗口语义，预计后续 Skin 线切片） | 未生成 |
 | Community `0.1.0-alpha.2` | 预发布；producer 与 Community SDK 均已实现并验证 | 不适用 | `779803e`（`MCP-F2-COMMUNITY-001`）：13 单元、2 契约、30 集成（真实 PostgreSQL/S3 协议/独立 Core 镜像/真实 Keycloak PKCE）+ 固定镜像运行冒烟通过；锁提交 `68b3d42` | 不适用 | `0.1.0-alpha.2`（`@mc-plan/community-sdk`，`MCP-F2-CONTRACTS-002`）：10 个 producer 已验证操作（producer 锚定 `70e55a1`）；pack 干净工程消费与固定镜像 `mcp-f2-community-001-779803e` 真实 HTTP smoke 两轮通过 |
+| Community `0.1.0-alpha.3` | 预发布；匿名内联预览契约已锁，生产者未实现（门户切片跟进） | 不适用 | 未实现（预计 `MCP-F2-COMMUNITY-002` 门户切片内落地） | 不适用 | 类型基线已随 alpha.3 重生成（`@mc-plan/community-sdk@0.1.0-alpha.3`，`MCP-F2-CONTRACTS-003`）：仍 10 个 producer 已验证操作，`previewResourceVersion` 无 producer 证据不暴露 |
 
 ## SDK 0.1.0-alpha.4 验收（MCP-F1-CONTRACTS-001，与 producer 验收分栏）
 
@@ -126,3 +127,7 @@ alpha.1 尚无 producer、消费者或部署；alpha.2 在所有认证操作中�
 Core 消费组合单独记录：Community `779803e` → Core API alpha.7、Core 运行镜像 `mc-plan-core:mcp-f1-core-012-closeout`（代码树 `9303cc6`）→ Core `/v1/me`；每次受保护请求通过公开 API 解析活动用户，真实注销后同 token 被 Community 拒绝。使用生成的契约类型与响应验证，不跨库、不导入私有业务源码；该事实不等于 Community 已消费 Core SDK 的全部操作。
 
 审核 allow/reject 在本地测试中明确为 SYNTHETIC-MODERATION；运行入口 disabled，保持待审。这里登记的是本地工程组合，不是正式审核、目标对象存储、备份恢复、Community SDK 或完整 F2/F4 首发。Community 最终运行镜像与完成状态以工作流记录为准。Core/Skin 接口与 Core SDK 17 操作未改变，SDK 全量门禁及固定镜像真实 HTTP/Keycloak smoke 已再次通过。Community SDK 首切片此后已由 `MCP-F2-CONTRACTS-002` 交付并验收（见上 SDK 分栏与兼容矩阵）；正式审核（Q-009 本地人工决议落地）、目标对象存储、备份恢复与完整 F2/F4 首发仍是独立门槛。
+
+## Community `0.1.0-alpha.3` 兼容分类
+
+本版本是在 `0.1.0-alpha.2` 之上的**预发布兼容新增（匿名内联预览）**：按所有者 2026-10-12 官网门户派工（prep 包 05 §GAP-1 方案），新增 `GET /v1/resources/{resourceId}/versions/{versionId}/preview`（operationId `previewResourceVersion`，匿名，无请求体）。逐请求可见性检查与 download 完全一致（未知/失配/未发布/已清理一律 404 不区分），流式返回与 download 相同的封存校验 PNG 字节；响应头语义为 Content-Type image/png、Content-Disposition inline、X-Content-Type-Options nosniff、sandbox CSP 与 Cache-Control no-store——保守默认锁定 no-store，有界私有缓存（如 `private, max-age≤60`）须所有者另行确认并复核 ADR-0014 下架传播窗口后才可放宽。公开页面可将其用作 `<img>` 直链而不暴露任何长期公开对象 URL。版本作用域与 download 对称：字节不可变、网格可用 `current_version_id` 组 URL、不新增"当前版本别名"语义。既有 10 操作、scope 与 Schema 零变化；ResourceFile `role=preview` 保持 schema-only（生产者是否填充由后续门户切片决定）。validate_contracts.py 机器锁定 alpha.3：11 操作集合、preview 匿名/无体/PNG-only/有界错误面，以及本分类段的 docs 门槛。生产者尚无实现（属后续门户工作流 `MCP-F2-COMMUNITY-002`），Community SDK 不暴露 `previewResourceVersion`（无 producer 证据，类型基线已随 alpha.3 重生成）。发布顺序为 Contracts alpha.3 锁 → 门户切片内 Community 生产者实现 → 真实门户消费者集成。回退时生产者可回到仅实现 alpha.2 的状态；不得保留一个与本契约语义不一致的预览表面。

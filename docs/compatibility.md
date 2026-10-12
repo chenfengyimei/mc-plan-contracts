@@ -107,3 +107,7 @@ SDK 侧验收证据：`format:check`、`lint --max-warnings 0`、严格 `typeche
 本版本是从未发布、未实现生产者的 `0.1.0-draft` 锁定首个 Skin 预发布切片，分类为**预发布兼容新增（匿名窗口语义）**：按 Foundation ADR-0012（所有者 2026-10-07 W10 方案 A）在既有四操作（createConversation/createRender/finalizeSkin/getJob，形状不变）之上新增四个匿名操作——`GET /v1/conversations/{conversationId}`（会话详情含消息历史）、`DELETE /v1/conversations/{conversationId}`（级联候选与字节的会话删除，204）、`GET /v1/conversations/{conversationId}/candidates/{candidateId}/preview` 与 `GET /v1/conversations/{conversationId}/skins/{resourceId}/download`（PNG 字节）。机器可校验规则：顶层 `security: []`（Standalone 匿名窗口），`userOAuth` 保留为 Official 模式文档性方案（不被任何操作引用属预期），每操作显式 404，全部路径 `/v1/` 前缀与唯一 operationId。生产者实现属后续 Skin 线切片（SKIN-008 产线在 Q-001 决策后跟进）。
 
 发布顺序为 Contracts `0.1.0-alpha.1` → Skin 生产者实现与契约测试 → 后续消费者工作流。回退时 Skin 生产者可回到仅实现四操作草案面的状态；不得保留一个与本契约匿名窗口语义不一致的预览/下载/删除表面。
+
+## Community `0.1.0-alpha.2` 身份依赖收敛
+
+alpha.1 尚无 producer、消费者或部署；alpha.2 在所有认证操作中显式加入既有 `profile:read`，与资源/上传 scope 同时要求，用于通过 Core `GET /v1/me` 获取稳定且仍可用的业务用户 ID。令牌需要同时被 Community 与 Core audience 接受。此项是**预发布安全语义收紧**，以新预发布版本和明确无部署迁移窗口处理；不发明用户 ID claim、不缓存或复制 Core 身份真相，不直接读其数据库。匿名公开读取不变，Core/Skin 契约与 Core SDK 17 操作均不变。生产者只能锁 alpha.2 后实现，alpha.1 不进入兼容组合。

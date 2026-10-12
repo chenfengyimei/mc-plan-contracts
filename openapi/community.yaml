@@ -1,10 +1,12 @@
 openapi: 3.1.0
 info:
   title: MC Plan Community API
-  version: 0.1.0-alpha.1
+  version: 0.1.0-alpha.2
   description: Prerelease local resource loop (ADR-0014). Uploads are sealed only after actual byte
     verification. Publication stays pending until independent moderation allows it; absent or failed
-    moderation never publishes. Q-009 provider and Q-002 formal license text remain owner gates.
+    moderation never publishes. Q-009 provider and Q-002 formal license text remain owner gates. Authenticated
+    operations explicitly require the existing profile:read scope to resolve the active Core identity; access
+    tokens must be accepted by both Community and Core audiences.
   license:
     name: Apache License 2.0
     identifier: Apache-2.0
@@ -27,6 +29,7 @@ paths:
       security:
         - userOAuth:
             - upload:write
+            - profile:read
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -125,6 +128,7 @@ paths:
       security:
         - userOAuth:
             - resource:write
+            - profile:read
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -188,6 +192,7 @@ paths:
         - {}
         - userOAuth:
             - resource:read
+            - profile:read
       responses:
         "200":
           description: Resource
@@ -232,6 +237,7 @@ paths:
       security:
         - userOAuth:
             - resource:write
+            - profile:read
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       responses:
@@ -269,6 +275,7 @@ paths:
       security:
         - userOAuth:
             - resource:write
+            - profile:read
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       requestBody:
@@ -340,6 +347,7 @@ paths:
       security:
         - userOAuth:
             - resource:write
+            - profile:read
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       responses:
@@ -386,6 +394,7 @@ paths:
       security:
         - userOAuth:
             - upload:write
+            - profile:read
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
       description: No request body. Re-reads actual bytes, requires exact size/SHA-256 and a decodable 64x64 PNG,
@@ -659,3 +668,4 @@ components:
             resource:read: Read owned non-public resources
             resource:write: Create, version, publish, and unpublish owned resources
             upload:write: Create resource upload sessions
+            profile:read: Resolve the active business identity through Core getCurrentUser

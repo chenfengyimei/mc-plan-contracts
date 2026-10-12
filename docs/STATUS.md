@@ -2,7 +2,7 @@
 
 阶段：F1 Core 契约 0.1.0-alpha.7 已锁定（事件投递/公开资料/注销权利端点生产者均已验收，注销生产者 `MCP-F1-CORE-010` 已关闭于 Core `cf95e3e`）；TypeScript SDK 已覆盖 17 个 producer 已验证操作
 
-版本：Core `0.1.0-alpha.7`（W02-b 注销权利端点，生产者已关闭）；Skin `0.1.0-alpha.1`（ADR-0012 匿名窗口）；Community `0.1.0-alpha.1`（2026-10-12 F2，ADR-0014，10 个资源闭环操作，producer 待验收）
+版本：Core `0.1.0-alpha.7`（W02-b 注销权利端点，生产者已关闭）；Skin `0.1.0-alpha.1`（ADR-0012 匿名窗口）；Community `0.1.0-alpha.2`（2026-10-12 F2，ADR-0014，10 个资源闭环操作，producer 待验收）
 
 Community 首个预发布契约新增 completeUploadSession/listAuthorResources/downloadResourceVersion，锁定实际字节封存、1 MiB 上传上限、上传签名响应头、确定分页、幂等/归属/错误和失败保持待审语义。公共 scope 保持 resource:read/resource:write/upload:write；未创建 F4 社交/管理员表面，不决定 Q-009/Q-002。Core/Skin 与 Core SDK 支持清单保持原版本。
 

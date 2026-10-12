@@ -696,8 +696,8 @@ def validate_core_prerelease(document: dict[str, Any]) -> None:
 
 
 def validate_community_prerelease(document: dict[str, Any]) -> None:
-    if document["info"]["version"] != "0.1.0-alpha.1":
-        raise ValueError("community.yaml must lock 0.1.0-alpha.1")
+    if document["info"]["version"] != "0.1.0-alpha.2":
+        raise ValueError("community.yaml must lock 0.1.0-alpha.2")
     operations = {operation["operationId"]: operation for _, _, operation in iter_operations(document)}
     expected = {"createUploadSession", "completeUploadSession", "listResources", "listAuthorResources",
                 "createResource", "getResource", "unpublishResource", "createResourceVersion",
@@ -711,7 +711,7 @@ def validate_community_prerelease(document: dict[str, Any]) -> None:
                         ("createResource", "resource:write"), ("createResourceVersion", "resource:write"),
                         ("publishResource", "resource:write"), ("unpublishResource", "resource:write")):
         op = operations[name]
-        if op["security"] != [{"userOAuth": [scope]}]:
+        if op["security"] != [{"userOAuth": [scope, "profile:read"]}]:
             raise ValueError(f"{name} must require userOAuth {scope}")
         if not any(p.get("$ref") == "#/components/parameters/IdempotencyKey" for p in op.get("parameters", [])):
             raise ValueError(f"{name} must require Idempotency-Key")

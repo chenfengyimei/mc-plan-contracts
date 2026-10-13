@@ -139,3 +139,7 @@ Core 消费组合单独记录：Community `779803e` → Core API alpha.7、Core 
 ## Community alpha.4 producer / SDK 本地组合
 
 MCP-F2-COMMUNITY-002：Contracts 锁 f52859c → Community producer c1cdab0（alpha.4，12 操作）→ Community SDK alpha.4。Producer 实跑13单元、3契约、40集成（真实 PostgreSQL/S3、Keycloak26.8 S256 PKCE 的 realm role 限制、并发决定、替换拒绝、下架/旧租约隔离、存储故障及审计失败全事务回滚）。SDK 40 单元、严格静态/build/pack 干净消费者全部通过；对固定镜像 mc-plan-community:mcp-f2-community-002-c1cdab0、独立 Core/DB/S3/本地 JWKS 的真实 HTTP smoke 通过，十二方法含授权 review 与匿名 preview；全部合成内容通过真实审核 API，不再 SQL 放行。Core SDK 37测试、pack与真实HTTP/Keycloak smoke回归通过，Core/Skin公共契约未变。SDK使用本地JWKS与producer真实Keycloak证据分开记录；SDK包仍private，本地pack，真实产品消费者/稳定发行/生产部署与完整F2/F4不在此证据范围。
+
+## Core `0.1.0-alpha.8` 兼容分类
+
+在alpha.7上预发布兼容新增（官方Community OAuth委托），依据Foundation ADR0017：DeveloperApp既有创建/批准端点的可委托目录增加已锁resource:read/resource:write/upload:write，仍限制在当前调用者scope上限；获准这些scope时才加入Community audience，收窄后删除该audience辅助scope，realm核对检查全部必需辅助scope。PAT六项目录/最长30天/服务scope隔离不变；moderation:review仅realm指定审核员，不进入App/PAT委托。原字段与操作形状保持，使用x-mc-plan-delegatable-scopes机器固定有效目录，无新scope名、API或migration。新授权受收窄/撤销，既有离线JWT需到期，不能声称即时反向修改。发布顺序：契约锁→Core producer与新镜像→CoreSDK类型/17操作回归→真实登记PKCE客户端访问Community→Ops。Communityalpha.4与Skin alpha.1表面不变；Community契约来源Corealpha.7元数据升级由独立消费者切片处理。

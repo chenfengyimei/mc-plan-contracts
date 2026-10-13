@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: MC Plan Core API
-  version: 0.1.0-alpha.7
+  version: 0.1.0-alpha.8
   description: >-
     Public business identity, profile, developer application, personal access
     token, entitlement, and credit surface. Keycloak remains the credential and
@@ -20,6 +20,11 @@ info:
     scope: the account stops being publicly addressable immediately and
     every authenticated face afterwards answers the locked 403
     ACCOUNT_UNAVAILABLE problem, while Keycloak credentials stay untouched.
+    ADR-0017 permits registered Developer Apps to delegate the existing Community resource:read,
+    resource:write and upload:write scopes within the caller ceiling. The provider adds Community audience
+    only while those scopes are approved. PAT scope catalog stays unchanged; moderation:review and service
+    permissions cannot be delegated through this registry. Scope narrowing and revocation affect new
+    authorizations, while already issued short-lived JWTs expire normally.
   license:
     name: Apache License 2.0
     identifier: Apache-2.0
@@ -168,6 +173,7 @@ paths:
   /v1/developer-apps:
     post:
       tags: [Developer Apps]
+      x-mc-plan-delegatable-scopes: [profile:read, credits:read, developer-apps:read, developer-apps:manage, pat:read, pat:manage, resource:read, resource:write, upload:write]
       operationId: createDeveloperApp
       summary: Register a developer application for the current user
       description: >-
@@ -257,6 +263,7 @@ paths:
           $ref: "#/components/responses/Problem"
     patch:
       tags: [Developer Apps]
+      x-mc-plan-delegatable-scopes: [profile:read, credits:read, developer-apps:read, developer-apps:manage, pat:read, pat:manage, resource:read, resource:write, upload:write]
       operationId: approveDeveloperAppScopes
       summary: Approve or narrow a developer application's scopes
       description: >-
@@ -867,6 +874,9 @@ components:
           scopes:
             profile:read: Read the current user's MC Plan profile
             profile:write: Edit the current user's public profile display name
+            resource:read: Delegated Community private-resource read (ADR-0017)
+            resource:write: Delegated Community resource lifecycle writes (ADR-0017)
+            upload:write: Delegated Community upload and completion (ADR-0017)
             credits:read: Read the current user's entitlements and credit balance
             developer-apps:read: Read the current user's developer applications and approved scopes
             developer-apps:manage: Create, update, approve scopes for, or revoke the current user's developer applications

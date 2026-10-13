@@ -159,8 +159,8 @@ PAT_GRANTABLE_SCOPES = {
 
 def validate_core_prerelease(document: dict[str, Any]) -> None:
     version = document.get("info", {}).get("version")
-    if version != "0.1.0-alpha.7":
-        raise ValueError("core.yaml must lock the W02-b deactivation rights slice as 0.1.0-alpha.7")
+    if version != "0.1.0-alpha.8":
+        raise ValueError("core.yaml must lock the ADR-0017 official Community delegation slice as 0.1.0-alpha.8")
 
     operation = document.get("paths", {}).get("/v1/me", {}).get("get", {})
     if operation.get("operationId") != "getCurrentUser":
@@ -629,6 +629,16 @@ def validate_core_prerelease(document: dict[str, Any]) -> None:
     ):
         if me_patch.get("responses", {}).get(status, {}).get("$ref") != ref:
             raise ValueError(f"core.yaml PATCH /v1/me must keep the locked {status} problem")
+
+    operations = {op["operationId"]: op for _, _, op in iter_operations(document)}
+    # ADR-0017: app delegation is distinct from the unchanged PAT catalog.
+    app_scopes = {"profile:read", "credits:read", "developer-apps:read", "developer-apps:manage",
+                  "pat:read", "pat:manage", "resource:read", "resource:write", "upload:write"}
+    for op in ("createDeveloperApp", "approveDeveloperAppScopes"):
+        if set(operations[op].get("x-mc-plan-delegatable-scopes", [])) != app_scopes:
+            raise ValueError("Developer App scope delegation catalog drift")
+    if "moderation:review" in app_scopes or "events:consume" in app_scopes:
+        raise ValueError("Privileged scopes cannot be ordinary app delegation")
 
     # --- W02-b deactivation rights slice (0.1.0-alpha.7) ------------------
     me_post = me_path.get("post", {})

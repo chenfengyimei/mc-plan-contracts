@@ -208,6 +208,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/resources/{resourceId}/versions/{versionId}/review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                resourceId: components["parameters"]["ResourceId"];
+                versionId: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Decide an immutable candidate as an authorized local reviewer
+         * @description ADR-0016 local manual review. The identity realm grants moderation:review only to designated reviewer users; ordinary authors cannot obtain it merely by requesting a scope. One reviewer decides the exact pending candidate version. Unknown or mismatched IDs are 404 NOT_FOUND; superseded, already decided or terminal unpublished candidates are 409 RESOURCE_STATE_CONFLICT. Approval atomically publishes this version and emits resource.published.v1; rejecting a replacement keeps the old published version. The reviewer ID, decision, optional bounded reason and time are audited. Same actor/operation/key/request replays the original 200 response; a changed request is 409 IDEMPOTENCY_KEY_CONFLICT. A new key cannot overturn an existing decision. Disabled review or dependency failure is 503 DEPENDENCY_UNAVAILABLE and leaves the candidate unchanged. This endpoint does not grant a pending-content listing or private preview privilege. Reviewers inspect the author-provided immutable file and version metadata before deciding; public preview remains published-only.
+         */
+        post: operations["reviewResourceVersion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -756,6 +779,47 @@ export interface operations {
             };
             400: components["responses"]["ValidationFailed"];
             404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            503: components["responses"]["DependencyUnavailable"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    reviewResourceVersion: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                resourceId: components["parameters"]["ResourceId"];
+                versionId: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    decision: "approve" | "reject";
+                    reason?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Resource after the committed review decision */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["resource"];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["AuthenticationRequired"];
+            403: components["responses"]["AccessForbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
             429: components["responses"]["RateLimited"];
             503: components["responses"]["DependencyUnavailable"];
             default: components["responses"]["Problem"];

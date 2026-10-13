@@ -143,3 +143,7 @@ MCP-F2-COMMUNITY-002：Contracts 锁 f52859c → Community producer c1cdab0（al
 ## Core `0.1.0-alpha.8` 兼容分类
 
 在alpha.7上预发布兼容新增（官方Community OAuth委托），依据Foundation ADR0017：DeveloperApp既有创建/批准端点的可委托目录增加已锁resource:read/resource:write/upload:write，仍限制在当前调用者scope上限；获准这些scope时才加入Community audience，收窄后删除该audience辅助scope，realm核对检查全部必需辅助scope。PAT六项目录/最长30天/服务scope隔离不变；moderation:review仅realm指定审核员，不进入App/PAT委托。原字段与操作形状保持，使用x-mc-plan-delegatable-scopes机器固定有效目录，无新scope名、API或migration。新授权受收窄/撤销，既有离线JWT需到期，不能声称即时反向修改。发布顺序：契约锁→Core producer与新镜像→CoreSDK类型/17操作回归→真实登记PKCE客户端访问Community→Ops。Communityalpha.4与Skin alpha.1表面不变；Community契约来源Corealpha.7元数据升级由独立消费者切片处理。
+
+## Core alpha.8 producer / SDK / 官方 Community OAuth 消费者组合
+
+MCP-F2-CORE-001：Contracts ebb00a6 → Core fb1bc07及固定镜像mc-plan-core:mcp-f2-core-001-fb1bc07（sha256:2c9ee8fba75c79dbdabe904533bfe60bca340eb8e0fddb7d5b346b74fa389867）→ CoreSDKalpha.8（仍17方法）。121单元+86HTTP E2E+25契约+74真实PG/Keycloak集成=306，8既有迁移及strict/build全通过。CoreSDK37测试/生成零漂移/干净pack与新镜像真实HTTP+Keycloak通过，CommunitySDK40测试/pack/真实HTTP回归过。Ops415a108独立真实消费证据：Core登记public客户端→真实S256 PKCE→双audience同Core业务ID→Communityalpha.4运行镜像签名PUT/完成封存/版本/202待审→指定realm审核员真实review API决定→同哈希preview/作者下架404；普通请求审核scope不能自授权，新授权收窄/撤销拒绝，非root/DB故障拒绝通过。只有合成角色夹具使用SQL，publication无SQL旁路；测试内容/许可/S3rver限定保留。旧客户端生命周期脚本对新镜像回归通过。Community运行API消费组合兼容，源码生成锁从Corealpha.7升级是后续独立消费者切片，未冒称其源码已同步。无稳定发布/生产部署/完整F2/F4完成。

@@ -37,3 +37,5 @@ F0 状态：已完成（本地契约骨架；尚未发布远程）
 2026-10-13 `MCP-F2-COMMUNITY-002`：ADR-0016 人工审核面契约 alpha.4 已锁定（新增 reviewResourceVersion、moderation:review、闭合决定/原因、幂等与失败保持待审），producer 与 SDK 方法待真实验收。alpha.3 预览也纳入该 producer 切片；历史十操作证据不自动扩展。
 
 MCP-F2-COMMUNITY-002 producer/SDK 实测：Community alpha.4 已由 c1cdab0 实现全部十二操作，realm 指定审核 scope + 单决定端点 + 匿名 inline preview。Community SDK 已开放十二方法（40单元/pack/真实HTTP），Core SDK37测试及真实Keycloak/HTTP回归通过；运行镜像与终态记录以完成工作流为准。正式消费者和完整F2/F4仍未完成。
+
+2026-10-13 MCP-F2-CORE-001：Core当前alpha.8，委托目录/PAT隔离与条件audience已由fb1bc07实现306项producer验收；CoreSDKalpha.8仍17操作，37项/pack/真实HTTP+Keycloak新镜像回归；Ops415a108真实登记客户端对独立Communityalpha.4完整资源链验证通过。Community/Skin公共契约不变，CommunitySDK40项及真实HTTP回归过；源码Core来源锁升级随后独立切片处理。

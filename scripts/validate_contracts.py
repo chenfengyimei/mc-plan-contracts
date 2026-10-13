@@ -703,20 +703,21 @@ def validate_core_prerelease(document: dict[str, Any]) -> None:
 
 
 def validate_community_prerelease(document: dict[str, Any]) -> None:
-    if document["info"]["version"] != "0.1.0-alpha.3":
-        raise ValueError("community.yaml must lock 0.1.0-alpha.3")
+    if document["info"]["version"] != "0.1.0-alpha.4":
+        raise ValueError("community.yaml must lock 0.1.0-alpha.4")
     operations = {operation["operationId"]: operation for _, _, operation in iter_operations(document)}
     expected = {"createUploadSession", "completeUploadSession", "listResources", "listAuthorResources",
                 "createResource", "getResource", "unpublishResource", "createResourceVersion",
-                "publishResource", "downloadResourceVersion", "previewResourceVersion"}
+                "publishResource", "downloadResourceVersion", "previewResourceVersion", "reviewResourceVersion"}
     if set(operations) != expected:
-        raise ValueError("Community alpha.3 operation set drift")
+        raise ValueError("Community alpha.4 operation set drift")
     upload = operations["createUploadSession"]["requestBody"]["content"]["application/json"]["schema"]
     if upload["additionalProperties"] is not False or upload["properties"]["size_bytes"].get("maximum") != 1048576:
         raise ValueError("Community uploads must be closed objects capped at 1 MiB")
     for name, scope in (("createUploadSession", "upload:write"), ("completeUploadSession", "upload:write"),
                         ("createResource", "resource:write"), ("createResourceVersion", "resource:write"),
-                        ("publishResource", "resource:write"), ("unpublishResource", "resource:write")):
+                        ("publishResource", "resource:write"), ("unpublishResource", "resource:write"),
+                        ("reviewResourceVersion", "moderation:review")):
         op = operations[name]
         if op["security"] != [{"userOAuth": [scope, "profile:read"]}]:
             raise ValueError(f"{name} must require userOAuth {scope}")
@@ -727,6 +728,17 @@ def validate_community_prerelease(document: dict[str, Any]) -> None:
     for name in ("listResources", "listAuthorResources", "downloadResourceVersion", "previewResourceVersion"):
         if operations[name]["security"] != []:
             raise ValueError(f"{name} must allow anonymous published reads")
+    review = operations["reviewResourceVersion"]
+    body = review["requestBody"]["content"]["application/json"]["schema"]
+    if (body.get("required") != ["decision"] or body.get("additionalProperties") is not False
+            or set(body["properties"]) != {"decision", "reason"}
+            or body["properties"]["decision"].get("enum") != ["approve", "reject"]
+            or body["properties"]["reason"].get("maxLength") != 1000):
+        raise ValueError("Manual review must keep its closed ADR-0016 request")
+    if not {"200", "404", "429"}.issubset(review["responses"]):
+        raise ValueError("Manual review must lock response/state errors")
+    if "Community `0.1.0-alpha.4`" not in (ROOT / "docs/compatibility.md").read_text(encoding="utf-8"):
+        raise ValueError("Manual review compatibility classification missing")
     preview = operations["previewResourceVersion"]
     if "requestBody" in preview:
         raise ValueError("previewResourceVersion must be bodyless")

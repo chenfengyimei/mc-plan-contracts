@@ -1,10 +1,10 @@
 openapi: 3.1.0
 info:
   title: MC Plan Community API
-  version: 0.1.0-alpha.3
+  version: 0.1.0-alpha.4
   description: Prerelease local resource loop (ADR-0014). Uploads are sealed only after actual byte
     verification. Publication stays pending until independent moderation allows it; absent or failed
-    moderation never publishes. Q-009 provider and Q-002 formal license text remain owner gates. Authenticated
+    moderation never publishes. ADR-0016 selects local manual review; Q-002 formal license text remains an owner gate. Authenticated
     operations explicitly require the existing profile:read scope to resolve the active Core identity; access
     tokens must be accepted by both Community and Core audiences.
   license:
@@ -532,6 +532,81 @@ paths:
         default:
           $ref: "#/components/responses/Problem"
       x-maturity: prerelease
+  /v1/resources/{resourceId}/versions/{versionId}/review:
+    parameters:
+      - $ref: "#/components/parameters/ResourceId"
+      - name: versionId
+        in: path
+        required: true
+        schema:
+          type: string
+          minLength: 1
+    post:
+      tags:
+        - Resources
+      operationId: reviewResourceVersion
+      summary: Decide an immutable candidate as an authorized local reviewer
+      security:
+        - userOAuth:
+            - moderation:review
+            - profile:read
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - decision
+              properties:
+                decision:
+                  type: string
+                  enum:
+                    - approve
+                    - reject
+                reason:
+                  type: string
+                  minLength: 1
+                  maxLength: 1000
+              additionalProperties: false
+      description: >-
+        ADR-0016 local manual review. The identity realm grants moderation:review only to designated
+        reviewer users; ordinary authors cannot obtain it merely by requesting a scope. One reviewer
+        decides the exact pending candidate version. Unknown or mismatched IDs are 404 NOT_FOUND;
+        superseded, already decided or terminal unpublished candidates are 409 RESOURCE_STATE_CONFLICT.
+        Approval atomically publishes this version and emits resource.published.v1; rejecting a replacement
+        keeps the old published version. The reviewer ID, decision, optional bounded reason and time are
+        audited. Same actor/operation/key/request replays the original 200 response; a changed request is
+        409 IDEMPOTENCY_KEY_CONFLICT. A new key cannot overturn an existing decision. Disabled review or
+        dependency failure is 503 DEPENDENCY_UNAVAILABLE and leaves the candidate unchanged. This endpoint
+        does not grant a pending-content listing or private preview privilege. Reviewers inspect the
+        author-provided immutable file and version metadata before deciding; public preview remains published-only.
+      responses:
+        "200":
+          description: Resource after the committed review decision
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/community/resource.json
+        "400":
+          $ref: "#/components/responses/ValidationFailed"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/AccessForbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "503":
+          $ref: "#/components/responses/DependencyUnavailable"
+        default:
+          $ref: "#/components/responses/Problem"
+      x-maturity: prerelease
 components:
   parameters:
     ResourceId:
@@ -703,6 +778,7 @@ components:
           authorizationUrl: https://identity.example.invalid/authorize
           tokenUrl: https://identity.example.invalid/token
           scopes:
+            moderation:review: Decide pending immutable resource candidates; designated reviewers only
             resource:read: Read owned non-public resources
             resource:write: Create, version, publish, and unpublish owned resources
             upload:write: Create resource upload sessions

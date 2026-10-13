@@ -53,3 +53,5 @@ pnpm --dir sdk/typescript smoke:real   # 固定镜像 + 隔离 PostgreSQL 的真
 ```
 
 Python SDK 在出现明确第三方需求前不启动（见 `docs/sdk.md`）。
+
+2026-10-13 alpha.8：类型锁ebb00a6，producer fb1bc07，17操作不变。DeveloperApp可在调用者scope上限内委托既有Community resource:read/resource:write/upload:write；Community操作还需profile:read和双audience。PAT目录与moderation:review/service权限保持隔离。真实登记客户端与Community资源链由Ops验收，SDK全量37项/pack/实际HTTP+Keycloak对新版固定镜像回归。

@@ -2,7 +2,7 @@
  * Explicit supported-operation manifest for the Core SDK.
  *
  * The SDK only exposes operations whose contract semantics are locked in
- * `openapi/core.yaml` at 0.1.0-alpha.7 AND whose producer has passed
+ * `openapi/core.yaml` at 0.1.0-alpha.8 AND whose producer has passed
  * contract, HTTP E2E and real-PostgreSQL integration acceptance. The first
  * twelve operations were producer-verified by MCP-F1-CORE-005, the two
  * consumer-pull event operations by MCP-F1-CORE-008, and the alpha.6 public
@@ -16,26 +16,26 @@
  */
 
 /** Contract prerelease version the generated types and transport are built from. */
-export const SUPPORTED_CONTRACT_VERSION = '0.1.0-alpha.7' as const;
+export const SUPPORTED_CONTRACT_VERSION = '0.1.0-alpha.8' as const;
 
-/** Contracts commit that locked the 0.1.0-alpha.7 surface (verify against docs/compatibility.md). */
-export const SUPPORTED_CONTRACT_LOCK_COMMIT = '56bff96fe5fcad31f85943b7a557ec54148ea503' as const;
+/** Contracts commit that locked the 0.1.0-alpha.8 surface (verify against docs/compatibility.md). */
+export const SUPPORTED_CONTRACT_LOCK_COMMIT = 'ebb00a63920b00379602e5f595d1aed3b7d0de1d' as const;
 
 /**
  * Producer commit of mc-plan-core verified against the supported operations:
  * the MCP-F1-CORE-010 final tree, which implements the alpha.7 deactivation
  * surface and re-ran the full producer gate suite.
  */
-export const SUPPORTED_PRODUCER_COMMIT = 'cf95e3efdab749c4f3f6aeb6b300051af58322bf' as const;
+export const SUPPORTED_PRODUCER_COMMIT = 'fb1bc07ac7e18deb6c13d290f34a8818bd96b832' as const;
 
 /**
  * sha256 of every contract file consumed by the type generation, relative to
- * the mc-plan-contracts repository root. Mirrors the 0.1.0-alpha.7 lock
+ * the mc-plan-contracts repository root. Mirrors the 0.1.0-alpha.8 lock
  * manifest; tests recompute these at run time so any contract edit that is
  * not regenerated fails `generate:check` and `test`.
  */
 export const SUPPORTED_CONTRACT_FILES = {
-  'openapi/core.yaml': '733d9a565bf07e4e063638354f68d2c4fadd6da6fd2cbfb30ea3fd100a6e3e98',
+  'openapi/core.yaml': '20c7e94851d8fefccceb6eb5bd3c2d1e34b122e804601e1e6d36559279f8247d',
   'schemas/common/actor.json': 'f1b371a741eb374f7bf8364398669a42a3b5e0031679af532320a10b17a04432',
   'schemas/common/problem.json': '80d6abfca67ccac9e22d83542134755c6126cae2696afbaa4c85efaceec4ba11',
   'schemas/common/event-envelope.json':

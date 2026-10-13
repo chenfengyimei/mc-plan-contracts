@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Real-HTTP smoke for @mc-plan/core-sdk, run in two phases against the fixed
- * MCP-F1-CORE-010 producer image (mc-plan-core:mcp-f1-core-010-cf95e3e) on
+ * MCP-F1-CORE-010 producer image (mc-plan-core:mcp-f2-core-001-fb1bc07) on
  * one isolated PostgreSQL 17.
  *
  * Phase 1 (regression): the established sixteen-operation scenarios against a
@@ -60,7 +60,7 @@ function resolveDocker() {
 }
 
 const docker = resolveDocker();
-const IMAGE = 'mc-plan-core:mcp-f1-core-010-cf95e3e';
+const IMAGE = 'mc-plan-core:mcp-f2-core-001-fb1bc07';
 const PG_IMAGE = process.env.SMOKE_PG_IMAGE ?? 'postgres:17-alpine';
 const KC_IMAGE = process.env.SMOKE_KC_IMAGE ?? 'quay.io/keycloak/keycloak:26.8.0';
 const RUN = `mcp-c006-sdk-${process.pid}`;

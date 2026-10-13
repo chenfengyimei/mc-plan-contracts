@@ -39,13 +39,13 @@ describe('supported contract manifest', () => {
       'deactivateCurrentUser',
     ]);
     expect(SUPPORTED_OPERATIONS).not.toContain('someFutureOperation');
-    expect(SUPPORTED_CONTRACT_VERSION).toBe('0.1.0-alpha.7');
-    expect(SUPPORTED_CONTRACT_LOCK_COMMIT).toBe('56bff96fe5fcad31f85943b7a557ec54148ea503');
+    expect(SUPPORTED_CONTRACT_VERSION).toBe('0.1.0-alpha.8');
+    expect(SUPPORTED_CONTRACT_LOCK_COMMIT).toBe('ebb00a63920b00379602e5f595d1aed3b7d0de1d');
     // Producer evidence for all seventeen supported operations comes from the
     // closed MCP-F1-CORE-010 slice (MCP-F1-CORE-009/008/005 before it) whose
     // final tree implements the alpha.7 deactivation surface and re-ran
     // every producer gate.
-    expect(SUPPORTED_PRODUCER_COMMIT).toBe('cf95e3efdab749c4f3f6aeb6b300051af58322bf');
+    expect(SUPPORTED_PRODUCER_COMMIT).toBe('fb1bc07ac7e18deb6c13d290f34a8818bd96b832');
   });
 
   it('matches the sha256 of every contract file consumed by generation', async () => {

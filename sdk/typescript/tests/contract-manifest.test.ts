@@ -39,8 +39,19 @@ describe('supported contract manifest', () => {
       'deactivateCurrentUser',
     ]);
     expect(SUPPORTED_OPERATIONS).not.toContain('someFutureOperation');
-    expect(SUPPORTED_CONTRACT_VERSION).toBe('0.1.0-alpha.8');
-    expect(SUPPORTED_CONTRACT_LOCK_COMMIT).toBe('ebb00a63920b00379602e5f595d1aed3b7d0de1d');
+    // ADR-0018 admin console operations have no producer evidence yet and must stay unexposed.
+    for (const adminOperation of [
+      'listAdminUsers',
+      'getAdminUser',
+      'listAdminCreditLedger',
+      'listAdminEntitlementRecords',
+      'listAdminAuditRecords',
+      'listAdminOutboxRecords',
+    ]) {
+      expect(SUPPORTED_OPERATIONS).not.toContain(adminOperation);
+    }
+    expect(SUPPORTED_CONTRACT_VERSION).toBe('0.1.0-alpha.9');
+    expect(SUPPORTED_CONTRACT_LOCK_COMMIT).toBe('8f917bda76eaccd705a73fd35fe9a23a3903ad73');
     // Producer evidence for all seventeen supported operations comes from the
     // closed MCP-F1-CORE-010 slice (MCP-F1-CORE-009/008/005 before it) whose
     // final tree implements the alpha.7 deactivation surface and re-ran

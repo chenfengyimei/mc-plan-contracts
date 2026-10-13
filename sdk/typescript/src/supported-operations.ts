@@ -2,7 +2,7 @@
  * Explicit supported-operation manifest for the Core SDK.
  *
  * The SDK only exposes operations whose contract semantics are locked in
- * `openapi/core.yaml` at 0.1.0-alpha.8 AND whose producer has passed
+ * `openapi/core.yaml` at 0.1.0-alpha.9 AND whose producer has passed
  * contract, HTTP E2E and real-PostgreSQL integration acceptance. The first
  * twelve operations were producer-verified by MCP-F1-CORE-005, the two
  * consumer-pull event operations by MCP-F1-CORE-008, and the alpha.6 public
@@ -10,16 +10,16 @@
  * The alpha.7 deactivation operation (deactivateCurrentUser) is verified by
  * MCP-F1-CORE-010, whose final tree (see SUPPORTED_PRODUCER_COMMIT) carries
  * the deactivation producer and re-ran the full gate suite for all
- * seventeen operations. Operations without producer evidence must not gain
- * callable client methods, and future surfaces must not be pre-invented
- * here.
+ * seventeen operations. The alpha.9 admin console operations (ADR-0018,
+ * MCP-F4-CORE-001) are deliberately NOT exposed until their producer
+ * evidence exists; they must not be pre-invented here.
  */
 
 /** Contract prerelease version the generated types and transport are built from. */
-export const SUPPORTED_CONTRACT_VERSION = '0.1.0-alpha.8' as const;
+export const SUPPORTED_CONTRACT_VERSION = '0.1.0-alpha.9' as const;
 
-/** Contracts commit that locked the 0.1.0-alpha.8 surface (verify against docs/compatibility.md). */
-export const SUPPORTED_CONTRACT_LOCK_COMMIT = 'ebb00a63920b00379602e5f595d1aed3b7d0de1d' as const;
+/** Contracts commit that locked the 0.1.0-alpha.9 surface (verify against docs/compatibility.md). */
+export const SUPPORTED_CONTRACT_LOCK_COMMIT = '8f917bda76eaccd705a73fd35fe9a23a3903ad73' as const;
 
 /**
  * Producer commit of mc-plan-core verified against the supported operations:
@@ -30,12 +30,12 @@ export const SUPPORTED_PRODUCER_COMMIT = 'fb1bc07ac7e18deb6c13d290f34a8818bd96b8
 
 /**
  * sha256 of every contract file consumed by the type generation, relative to
- * the mc-plan-contracts repository root. Mirrors the 0.1.0-alpha.8 lock
+ * the mc-plan-contracts repository root. Mirrors the 0.1.0-alpha.9 lock
  * manifest; tests recompute these at run time so any contract edit that is
  * not regenerated fails `generate:check` and `test`.
  */
 export const SUPPORTED_CONTRACT_FILES = {
-  'openapi/core.yaml': '20c7e94851d8fefccceb6eb5bd3c2d1e34b122e804601e1e6d36559279f8247d',
+  'openapi/core.yaml': 'fa19cd367b30823f70237b0dbc5c084bbe28c255ac82a4c8a0d2d000fe7f10bd',
   'schemas/common/actor.json': 'f1b371a741eb374f7bf8364398669a42a3b5e0031679af532320a10b17a04432',
   'schemas/common/problem.json': '80d6abfca67ccac9e22d83542134755c6126cae2696afbaa4c85efaceec4ba11',
   'schemas/common/event-envelope.json':

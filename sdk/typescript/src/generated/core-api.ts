@@ -248,6 +248,132 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List MC Plan business users for administrators
+         * @description ADR-0018 bounded F4-early admin console face, strictly read-only. Returns MC Plan business users newest first with opaque cursor pagination. Only realm-designated administrator users holding the admin:read userOAuth scope, the ADMIN business role and an ACTIVE account may call this operation; personal access tokens can never obtain admin:read and service tokens are rejected. The response never includes identity emails, OIDC subjects or issuer claims.
+         */
+        get: operations["listAdminUsers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/users/{userId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                userId: components["parameters"]["UserId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * Return one MC Plan business user for administrators
+         * @description Returns the administrative view of one MC Plan business user: public display name, business status, business role, timestamps, the non-negative credit balance and counts of linked identities, developer applications and personal access tokens. The read is strictly read-only and never includes identity emails, OIDC subjects, issuer claims or token secrets. Unknown or malformed identifiers respond 404 without revealing whether the account exists.
+         */
+        get: operations["getAdminUser"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/users/{userId}/credit-ledger": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                userId: components["parameters"]["UserId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * List one user's credit ledger entries for administrators
+         * @description Returns the immutable credit ledger entries of one MC Plan user newest first with opaque cursor pagination. Items carry the locked CreditLedgerEntry fields plus the recorded reason and actor id - the admin-only extension required by the manual-adjustment audit rule. The read is strictly read-only: it never creates accounts, ledger entries, audit records or outbox records.
+         */
+        get: operations["listAdminCreditLedger"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/users/{userId}/entitlement-records": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                userId: components["parameters"]["UserId"];
+            };
+            cookie?: never;
+        };
+        /**
+         * List one user's materialized daily entitlement records
+         * @description Returns the materialized DailyEntitlement rows of one MC Plan user newest first with opaque cursor pagination, including the policy module, operation, policy date and granted/consumed units. The read is strictly read-only and never consumes quota; entitlements materialize only on real consumption.
+         */
+        get: operations["listAdminEntitlementRecords"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/audit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the immutable audit trail for administrators
+         * @description Returns the immutable audit trail newest first with opaque cursor pagination and an optional user filter. The metadata object is action-specific and is exposed to administrators exactly as recorded. The read is strictly read-only.
+         */
+        get: operations["listAdminAuditRecords"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/v1/admin/outbox": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List internal outbox delivery state for administrators
+         * @description Returns internal outbox records newest first with opaque cursor pagination and an optional state filter, exposing event type, delivery state, attempt count, delivery position and the bounded last error exactly as recorded. The read is strictly read-only and never mutates delivery state or consumer progress.
+         */
+        get: operations["listAdminOutboxRecords"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -421,6 +547,128 @@ export interface components {
             /** @description The acknowledged opaque delivery position. Every event up to and including this position is confirmed for the calling service consumer. */
             cursor: string;
         };
+        /** AdminUserSummary */
+        "admin-user-summary": {
+            user_id: string;
+            display_name: string;
+            /** @enum {string} */
+            status: "ACTIVE" | "SUSPENDED" | "CLOSED" | "SECURITY_HOLD";
+            /** @enum {string} */
+            role: "USER" | "CREATOR" | "DEVELOPER" | "MODERATOR" | "ADMIN";
+            /** Format: date-time */
+            created_at: string;
+        };
+        /** AdminUserPage */
+        "admin-user-page": {
+            items: components["schemas"]["admin-user-summary"][];
+            /** @description Opaque cursor after the last returned user. Null when no older users remain. */
+            next_cursor: string | null;
+        };
+        /** AdminUser */
+        "admin-user": {
+            user_id: string;
+            display_name: string;
+            /** @enum {string} */
+            status: "ACTIVE" | "SUSPENDED" | "CLOSED" | "SECURITY_HOLD";
+            /** @enum {string} */
+            role: "USER" | "CREATOR" | "DEVELOPER" | "MODERATOR" | "ADMIN";
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            /** @description Non-negative balance projection; an existing user without a credit account reads zero. */
+            credit_balance: number;
+            identity_links_count: number;
+            developer_apps_count: number;
+            personal_access_tokens_count: number;
+        };
+        /** AdminCreditLedgerEntry */
+        "admin-credit-ledger-entry": {
+            entry_id: string;
+            user_id: string;
+            /** @enum {string} */
+            kind: "grant" | "consume" | "refund" | "adjustment";
+            amount: number;
+            balance_before: number;
+            balance_after: number;
+            source: string;
+            reference_id?: string | null;
+            /** @description Recorded reason exactly as written to the immutable ledger; manual adjustments must carry the administrator reason. */
+            reason: string;
+            /** @description Actor identity recorded with the entry (administrator or service caller). */
+            actor_id: string;
+            /** Format: date-time */
+            created_at: string;
+        };
+        /** AdminCreditLedgerPage */
+        "admin-credit-ledger-page": {
+            items: components["schemas"]["admin-credit-ledger-entry"][];
+            /** @description Opaque cursor after the last returned entry. Null when no older entries remain. */
+            next_cursor: string | null;
+        };
+        /** AdminEntitlementRecord */
+        "admin-entitlement-record": {
+            entitlement_id: string;
+            /** @enum {string} */
+            module: "skin";
+            /** @enum {string} */
+            operation: "creation_session";
+            /**
+             * Format: date
+             * @description Asia/Shanghai natural day the entitlement materialized on.
+             */
+            policy_date: string;
+            granted: number;
+            consumed: number;
+            /** Format: date-time */
+            created_at: string;
+        };
+        /** AdminEntitlementRecordPage */
+        "admin-entitlement-record-page": {
+            items: components["schemas"]["admin-entitlement-record"][];
+            /** @description Opaque cursor after the last returned record. Null when no older records remain. */
+            next_cursor: string | null;
+        };
+        /** AdminAuditRecord */
+        "admin-audit-record": {
+            audit_id: string;
+            user_id: string;
+            action: string;
+            target_id: string;
+            /** @description Action-specific audit metadata exactly as recorded in the immutable audit trail. */
+            metadata: Record<string, never>;
+            /** Format: date-time */
+            created_at: string;
+        };
+        /** AdminAuditRecordPage */
+        "admin-audit-record-page": {
+            items: components["schemas"]["admin-audit-record"][];
+            /** @description Opaque cursor after the last returned record. Null when no older records remain. */
+            next_cursor: string | null;
+        };
+        /** AdminOutboxRecord */
+        "admin-outbox-record": {
+            record_id: string;
+            user_id: string;
+            event_type: string;
+            /** @enum {string} */
+            state: "PENDING" | "PUBLISHED";
+            attempt_count: number;
+            /** @description Publish-order position assigned atomically at PUBLISHED time; null while pending. */
+            delivery_position?: number | null;
+            /** @description Bounded last delivery error exactly as recorded, if any. */
+            last_error?: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            published_at?: string | null;
+        };
+        /** AdminOutboxRecordPage */
+        "admin-outbox-record-page": {
+            items: components["schemas"]["admin-outbox-record"][];
+            /** @description Opaque cursor after the last returned record. Null when no older records remain. */
+            next_cursor: string | null;
+        };
     };
     responses: {
         /** @description Authentication is missing or the credential fails signature, issuer, audience, expiry, verified-email, or personal-access-token validation. */
@@ -517,6 +765,8 @@ export interface components {
         AppId: string;
         TokenId: string;
         IdempotencyKey: string;
+        /** @description Opaque pagination cursor returned as next_cursor by the previous page. Malformed or unknown cursors are rejected as validation problems. */
+        PageCursor: string;
     };
     requestBodies: never;
     headers: never;
@@ -982,6 +1232,187 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["event-acknowledgment"];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["AuthenticationRequired"];
+            403: components["responses"]["AccessForbidden"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    listAdminUsers: {
+        parameters: {
+            query?: {
+                /** @description Maximum number of users returned per page. */
+                limit?: number;
+                /** @description Opaque pagination cursor returned as next_cursor by the previous page. Malformed or unknown cursors are rejected as validation problems. */
+                cursor?: components["parameters"]["PageCursor"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description MC Plan business users */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["admin-user-page"];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["AuthenticationRequired"];
+            403: components["responses"]["AccessForbidden"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    getAdminUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                userId: components["parameters"]["UserId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description MC Plan business user administrative detail */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["admin-user"];
+                };
+            };
+            401: components["responses"]["AuthenticationRequired"];
+            403: components["responses"]["AccessForbidden"];
+            404: components["responses"]["NotFound"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    listAdminCreditLedger: {
+        parameters: {
+            query?: {
+                /** @description Maximum number of ledger entries returned per page. */
+                limit?: number;
+                /** @description Opaque pagination cursor returned as next_cursor by the previous page. Malformed or unknown cursors are rejected as validation problems. */
+                cursor?: components["parameters"]["PageCursor"];
+            };
+            header?: never;
+            path: {
+                userId: components["parameters"]["UserId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Credit ledger entries */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["admin-credit-ledger-page"];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["AuthenticationRequired"];
+            403: components["responses"]["AccessForbidden"];
+            404: components["responses"]["NotFound"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    listAdminEntitlementRecords: {
+        parameters: {
+            query?: {
+                /** @description Maximum number of entitlement records returned per page. */
+                limit?: number;
+                /** @description Opaque pagination cursor returned as next_cursor by the previous page. Malformed or unknown cursors are rejected as validation problems. */
+                cursor?: components["parameters"]["PageCursor"];
+            };
+            header?: never;
+            path: {
+                userId: components["parameters"]["UserId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Daily entitlement records */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["admin-entitlement-record-page"];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["AuthenticationRequired"];
+            403: components["responses"]["AccessForbidden"];
+            404: components["responses"]["NotFound"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    listAdminAuditRecords: {
+        parameters: {
+            query?: {
+                /** @description Maximum number of audit records returned per page. */
+                limit?: number;
+                /** @description Opaque pagination cursor returned as next_cursor by the previous page. Malformed or unknown cursors are rejected as validation problems. */
+                cursor?: components["parameters"]["PageCursor"];
+                /** @description Only return audit records for this MC Plan user id. */
+                user_id?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Audit records */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["admin-audit-record-page"];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["AuthenticationRequired"];
+            403: components["responses"]["AccessForbidden"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    listAdminOutboxRecords: {
+        parameters: {
+            query?: {
+                /** @description Maximum number of outbox records returned per page. */
+                limit?: number;
+                /** @description Opaque pagination cursor returned as next_cursor by the previous page. Malformed or unknown cursors are rejected as validation problems. */
+                cursor?: components["parameters"]["PageCursor"];
+                /** @description Only return outbox records in this delivery state. */
+                state?: "PENDING" | "PUBLISHED";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Outbox delivery records */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["admin-outbox-record-page"];
                 };
             };
             400: components["responses"]["ValidationFailed"];

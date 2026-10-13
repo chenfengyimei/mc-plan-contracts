@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.mc-plan.example/core/admin-entitlement-record-page.v1.json",
+  "title": "AdminEntitlementRecordPage",
+  "type": "object",
+  "required": ["items", "next_cursor"],
+  "properties": {
+    "items": {
+      "type": "array",
+      "items": { "$ref": "admin-entitlement-record.json" }
+    },
+    "next_cursor": {
+      "type": ["string", "null"],
+      "description": "Opaque cursor after the last returned record. Null when no older records remain."
+    }
+  },
+  "additionalProperties": false
+}

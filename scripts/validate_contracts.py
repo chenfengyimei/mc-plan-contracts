@@ -159,8 +159,8 @@ PAT_GRANTABLE_SCOPES = {
 
 def validate_core_prerelease(document: dict[str, Any]) -> None:
     version = document.get("info", {}).get("version")
-    if version != "0.1.0-alpha.8":
-        raise ValueError("core.yaml must lock the ADR-0017 official Community delegation slice as 0.1.0-alpha.8")
+    if version != "0.1.0-alpha.9":
+        raise ValueError("core.yaml must lock the ADR-0018 admin console read-only slice as 0.1.0-alpha.9")
 
     operation = document.get("paths", {}).get("/v1/me", {}).get("get", {})
     if operation.get("operationId") != "getCurrentUser":
@@ -668,6 +668,251 @@ def validate_core_prerelease(document: dict[str, Any]) -> None:
         if deactivation_responses.get(status, {}).get("$ref") != ref:
             raise ValueError(f"core.yaml deactivateCurrentUser must keep the locked {status} problem")
 
+    # --- ADR-0018 admin console read-only slice (0.1.0-alpha.9) -----------
+    admin_scope = "admin:read"
+    admin_user_flow_scopes: set[str] = set()
+    for flow in schemes.get("userOAuth", {}).get("flows", {}).values():
+        admin_user_flow_scopes.update(flow.get("scopes", {}).keys())
+    if admin_scope not in admin_user_flow_scopes:
+        raise ValueError("core.yaml userOAuth must declare the admin:read scope")
+    admin_service_flow_scopes: set[str] = set()
+    for flow in schemes.get("serviceOAuth", {}).get("flows", {}).values():
+        admin_service_flow_scopes.update(flow.get("scopes", {}).keys())
+    if admin_scope in admin_service_flow_scopes:
+        raise ValueError("core.yaml serviceOAuth must never declare the admin-only admin:read scope")
+    if admin_scope in PAT_GRANTABLE_SCOPES:
+        raise ValueError("admin:read must never be personal-access-token grantable")
+    if admin_scope in app_scopes:
+        raise ValueError("admin:read must never be ordinary developer-app delegation")
+
+    expected_admin_pages = {
+        "listAdminUsers": ("/v1/admin/users", "../schemas/core/admin-user-page.json"),
+        "getAdminUser": ("/v1/admin/users/{userId}", "../schemas/core/admin-user.json"),
+        "listAdminCreditLedger": ("/v1/admin/users/{userId}/credit-ledger", "../schemas/core/admin-credit-ledger-page.json"),
+        "listAdminEntitlementRecords": ("/v1/admin/users/{userId}/entitlement-records", "../schemas/core/admin-entitlement-record-page.json"),
+        "listAdminAuditRecords": ("/v1/admin/audit", "../schemas/core/admin-audit-record-page.json"),
+        "listAdminOutboxRecords": ("/v1/admin/outbox", "../schemas/core/admin-outbox-record-page.json"),
+    }
+    user_scoped_admin_ops = {"getAdminUser", "listAdminCreditLedger", "listAdminEntitlementRecords"}
+    listed_admin_ops = {
+        "listAdminUsers",
+        "listAdminCreditLedger",
+        "listAdminEntitlementRecords",
+        "listAdminAuditRecords",
+        "listAdminOutboxRecords",
+    }
+    for operation_id, (path, page_ref) in expected_admin_pages.items():
+        operation = operations[operation_id]
+        if operation.get("x-mc-plan-stability") != "prerelease":
+            raise ValueError(f"core.yaml {operation_id} must be marked prerelease")
+        if operation.get("security") != [{"userOAuth": [admin_scope]}]:
+            raise ValueError(
+                f"core.yaml {operation_id} must require exactly the admin:read scope on the interactive userOAuth scheme only"
+            )
+        admin_responses = operation.get("responses", {})
+        if (
+            admin_responses.get("200", {})
+            .get("content", {})
+            .get("application/json", {})
+            .get("schema", {})
+            .get("$ref")
+            != page_ref
+        ):
+            raise ValueError(f"core.yaml {operation_id} 200 must use {page_ref.rsplit('/', 1)[-1]}")
+        for status, ref in (
+            ("401", "#/components/responses/AuthenticationRequired"),
+            ("403", "#/components/responses/AccessForbidden"),
+        ):
+            if admin_responses.get(status, {}).get("$ref") != ref:
+                raise ValueError(f"core.yaml {operation_id} must keep the locked {status} problem")
+        if operation_id in user_scoped_admin_ops:
+            if admin_responses.get("404", {}).get("$ref") != "#/components/responses/NotFound":
+                raise ValueError(f"core.yaml {operation_id} must keep the locked 404 problem")
+        elif "404" in admin_responses:
+            raise ValueError(f"core.yaml {operation_id} is a global surface and must not invent a 404")
+        if operation_id in listed_admin_ops:
+            admin_limit_schema: dict[str, Any] = {}
+            for parameter in operation.get("parameters", []):
+                if parameter.get("name") == "limit":
+                    admin_limit_schema = parameter.get("schema", {})
+            if (
+                admin_limit_schema.get("minimum"),
+                admin_limit_schema.get("maximum"),
+                admin_limit_schema.get("default"),
+            ) != (1, 100, 20):
+                raise ValueError(f"core.yaml {operation_id} limit must stay bounded to 1..100 default 20")
+            if not any(
+                parameter.get("$ref") == "#/components/parameters/PageCursor"
+                for parameter in operation.get("parameters", [])
+            ):
+                raise ValueError(f"core.yaml {operation_id} must use the PageCursor parameter")
+            if admin_responses.get("400", {}).get("$ref") != "#/components/responses/ValidationFailed":
+                raise ValueError(f"core.yaml {operation_id} must keep the locked 400 validation problem")
+        elif "400" in admin_responses:
+            raise ValueError(f"core.yaml {operation_id} must not invent a 400 for path identifiers")
+
+    page_cursor = document.get("components", {}).get("parameters", {}).get("PageCursor", {})
+    cursor_schema = page_cursor.get("schema", {})
+    if (
+        page_cursor.get("name") != "cursor"
+        or page_cursor.get("in") != "query"
+        or page_cursor.get("required") is not False
+        or cursor_schema.get("minLength") != 1
+        or cursor_schema.get("maxLength") != 512
+    ):
+        raise ValueError("core.yaml PageCursor must stay a bounded optional query cursor")
+
+    outbox_state_schema: dict[str, Any] = {}
+    for parameter in operations["listAdminOutboxRecords"].get("parameters", []):
+        if parameter.get("name") == "state":
+            outbox_state_schema = parameter.get("schema", {})
+    if outbox_state_schema.get("enum") != ["PENDING", "PUBLISHED"]:
+        raise ValueError("core.yaml listAdminOutboxRecords state filter must stay the locked enum")
+    audit_user_schema: dict[str, Any] = {}
+    for parameter in operations["listAdminAuditRecords"].get("parameters", []):
+        if parameter.get("name") == "user_id":
+            audit_user_schema = parameter.get("schema", {})
+    if audit_user_schema.get("format") != "uuid":
+        raise ValueError("core.yaml listAdminAuditRecords user_id filter must be a uuid")
+
+    admin_summary = json.loads((ROOT / "schemas/core/admin-user-summary.json").read_text(encoding="utf-8"))
+    if set(admin_summary.get("properties", {})) != {"user_id", "display_name", "status", "role", "created_at"}:
+        raise ValueError("AdminUserSummary exposes unexpected fields")
+    if (
+        admin_summary.get("properties", {}).get("status", {}).get("enum")
+        != ["ACTIVE", "SUSPENDED", "CLOSED", "SECURITY_HOLD"]
+        or admin_summary.get("properties", {}).get("role", {}).get("enum")
+        != ["USER", "CREATOR", "DEVELOPER", "MODERATOR", "ADMIN"]
+    ):
+        raise ValueError("AdminUserSummary must keep the locked status and role enums")
+    if admin_summary.get("additionalProperties") is not False:
+        raise ValueError("AdminUserSummary must reject identity-provider or secret fields")
+
+    admin_user = json.loads((ROOT / "schemas/core/admin-user.json").read_text(encoding="utf-8"))
+    if set(admin_user.get("properties", {})) != {
+        "user_id",
+        "display_name",
+        "status",
+        "role",
+        "created_at",
+        "updated_at",
+        "credit_balance",
+        "identity_links_count",
+        "developer_apps_count",
+        "personal_access_tokens_count",
+    }:
+        raise ValueError("AdminUser exposes unexpected fields")
+    if admin_user.get("properties", {}).get("credit_balance", {}).get("minimum") != 0:
+        raise ValueError("AdminUser must keep a non-negative credit balance")
+    if admin_user.get("additionalProperties") is not False:
+        raise ValueError("AdminUser must reject unexpected fields")
+
+    admin_ledger = json.loads(
+        (ROOT / "schemas/core/admin-credit-ledger-entry.json").read_text(encoding="utf-8")
+    )
+    if set(admin_ledger.get("properties", {})) != {
+        "entry_id",
+        "user_id",
+        "kind",
+        "amount",
+        "balance_before",
+        "balance_after",
+        "source",
+        "reference_id",
+        "reason",
+        "actor_id",
+        "created_at",
+    }:
+        raise ValueError("AdminCreditLedgerEntry exposes unexpected fields")
+    if admin_ledger.get("properties", {}).get("kind", {}).get("enum") != [
+        "grant",
+        "consume",
+        "refund",
+        "adjustment",
+    ]:
+        raise ValueError("AdminCreditLedgerEntry must keep the four immutable ledger kinds")
+    if admin_ledger.get("properties", {}).get("reason", {}).get("maxLength") != 512:
+        raise ValueError("AdminCreditLedgerEntry reason must stay bounded to the recorded 512")
+    if admin_ledger.get("properties", {}).get("actor_id", {}).get("maxLength") != 255:
+        raise ValueError("AdminCreditLedgerEntry actor_id must stay bounded to the recorded 255")
+    if admin_ledger.get("additionalProperties") is not False:
+        raise ValueError("AdminCreditLedgerEntry must reject unexpected fields")
+
+    admin_entitlement = json.loads(
+        (ROOT / "schemas/core/admin-entitlement-record.json").read_text(encoding="utf-8")
+    )
+    if set(admin_entitlement.get("properties", {})) != {
+        "entitlement_id",
+        "module",
+        "operation",
+        "policy_date",
+        "granted",
+        "consumed",
+        "created_at",
+    }:
+        raise ValueError("AdminEntitlementRecord exposes unexpected fields")
+    if (
+        admin_entitlement.get("properties", {}).get("module", {}).get("enum") != ["skin"]
+        or admin_entitlement.get("properties", {}).get("operation", {}).get("enum")
+        != ["creation_session"]
+    ):
+        raise ValueError("AdminEntitlementRecord must keep the locked policy enums")
+    if admin_entitlement.get("additionalProperties") is not False:
+        raise ValueError("AdminEntitlementRecord must reject internal policy rows")
+
+    admin_audit = json.loads((ROOT / "schemas/core/admin-audit-record.json").read_text(encoding="utf-8"))
+    if set(admin_audit.get("properties", {})) != {
+        "audit_id",
+        "user_id",
+        "action",
+        "target_id",
+        "metadata",
+        "created_at",
+    }:
+        raise ValueError("AdminAuditRecord exposes unexpected fields")
+    if admin_audit.get("properties", {}).get("metadata", {}).get("type") != "object":
+        raise ValueError("AdminAuditRecord metadata must stay the recorded action-specific object")
+    if admin_audit.get("additionalProperties") is not False:
+        raise ValueError("AdminAuditRecord must reject unexpected fields")
+
+    admin_outbox = json.loads((ROOT / "schemas/core/admin-outbox-record.json").read_text(encoding="utf-8"))
+    if set(admin_outbox.get("properties", {})) != {
+        "record_id",
+        "user_id",
+        "event_type",
+        "state",
+        "attempt_count",
+        "delivery_position",
+        "last_error",
+        "created_at",
+        "published_at",
+    }:
+        raise ValueError("AdminOutboxRecord exposes unexpected fields")
+    if admin_outbox.get("properties", {}).get("state", {}).get("enum") != ["PENDING", "PUBLISHED"]:
+        raise ValueError("AdminOutboxRecord must keep the locked delivery states")
+    if admin_outbox.get("properties", {}).get("last_error", {}).get("maxLength") != 512:
+        raise ValueError("AdminOutboxRecord last_error must stay bounded to 512")
+    if admin_outbox.get("additionalProperties") is not False:
+        raise ValueError("AdminOutboxRecord must reject unexpected fields")
+
+    for page_name, item_ref in (
+        ("admin-user-page.json", "admin-user-summary.json"),
+        ("admin-credit-ledger-page.json", "admin-credit-ledger-entry.json"),
+        ("admin-entitlement-record-page.json", "admin-entitlement-record.json"),
+        ("admin-audit-record-page.json", "admin-audit-record.json"),
+        ("admin-outbox-record-page.json", "admin-outbox-record.json"),
+    ):
+        page = json.loads((ROOT / "schemas/core" / page_name).read_text(encoding="utf-8"))
+        if set(page.get("properties", {})) != {"items", "next_cursor"} or page.get("required") != [
+            "items",
+            "next_cursor",
+        ]:
+            raise ValueError(f"{page_name} must be a closed items+next_cursor page")
+        if page.get("properties", {}).get("items", {}).get("items", {}).get("$ref") != item_ref:
+            raise ValueError(f"{page_name} items must reference {item_ref}")
+        if page.get("additionalProperties") is not False:
+            raise ValueError(f"{page_name} must reject unexpected fields")
+
     compatibility = (ROOT / "docs/compatibility.md").read_text(encoding="utf-8")
     if "Core `0.1.0-alpha.1`" not in compatibility or "预发布兼容收敛" not in compatibility:
         raise ValueError("docs/compatibility.md must classify Core 0.1.0-alpha.1")
@@ -709,6 +954,13 @@ def validate_core_prerelease(document: dict[str, Any]) -> None:
     ):
         raise ValueError(
             "docs/compatibility.md must classify Community 0.1.0-alpha.3 as an anonymous inline preview addition"
+        )
+    if (
+        "Core `0.1.0-alpha.9`" not in compatibility
+        or "预发布兼容新增（管理员只读查询面）" not in compatibility
+    ):
+        raise ValueError(
+            "docs/compatibility.md must classify Core 0.1.0-alpha.9 as an admin read-only query addition"
         )
 
 

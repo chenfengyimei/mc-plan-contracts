@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.mc-plan.example/core/admin-entitlement-record.v1.json",
+  "title": "AdminEntitlementRecord",
+  "type": "object",
+  "required": [
+    "entitlement_id",
+    "module",
+    "operation",
+    "policy_date",
+    "granted",
+    "consumed",
+    "created_at"
+  ],
+  "properties": {
+    "entitlement_id": { "type": "string", "minLength": 1 },
+    "module": { "type": "string", "enum": ["skin"] },
+    "operation": { "type": "string", "enum": ["creation_session"] },
+    "policy_date": {
+      "type": "string",
+      "format": "date",
+      "description": "Asia/Shanghai natural day the entitlement materialized on."
+    },
+    "granted": { "type": "integer", "minimum": 0 },
+    "consumed": { "type": "integer", "minimum": 0 },
+    "created_at": { "type": "string", "format": "date-time" }
+  },
+  "additionalProperties": false
+}

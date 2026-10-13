@@ -1,8 +1,8 @@
 # 状态
 
-阶段：F1 Core 契约 0.1.0-alpha.7 已锁定（事件投递/公开资料/注销权利端点生产者均已验收，注销生产者 `MCP-F1-CORE-010` 已关闭于 Core `cf95e3e`）；Core TypeScript SDK 已覆盖 17 个 producer 已验证操作，Community TypeScript SDK 已覆盖 10 个 producer 已验证操作
+阶段：Core 契约 0.1.0-alpha.9 已锁定（alpha.8 官方 Community OAuth 委托生产者已验收 `MCP-F2-CORE-001`；alpha.9 管理员只读查询面按 ADR-0018 锁定，producer 属 `MCP-F4-CORE-001` 实施中）；Core TypeScript SDK 已覆盖 17 个 producer 已验证操作，Community TypeScript SDK 已覆盖 12 个 producer 已验证操作
 
-版本：Core `0.1.0-alpha.7`（W02-b 注销权利端点，生产者已关闭）；Skin `0.1.0-alpha.1`（ADR-0012 匿名窗口）；Community `0.1.0-alpha.3`（2026-10-12 F2，ADR-0014 + 门户 GAP-1：10 个已验收操作 + 匿名内联预览契约锁待生产者；producer `70e55a1` + 固定镜像已验收，Community SDK 已交付）
+版本：Core `0.1.0-alpha.9`（ADR-0018 管理员只读查询面：admin:read 六操作，realm 指定管理员 + ADMIN 角色）；Skin `0.1.0-alpha.1`（ADR-0012 匿名窗口）；Community `0.1.0-alpha.4`（ADR-0016 人工审核 + ADR-0014 资源闭环，producer/SDK 已验收）
 
 Community 首个预发布契约新增 completeUploadSession/listAuthorResources/downloadResourceVersion，锁定实际字节封存、1 MiB 上传上限、上传签名响应头、确定分页、幂等/归属/错误和失败保持待审语义。公共 scope 保持 resource:read/resource:write/upload:write；未创建 F4 社交/管理员表面，不决定 Q-009/Q-002。Core/Skin 与 Core SDK 支持清单保持原版本。
 
@@ -41,3 +41,5 @@ MCP-F2-COMMUNITY-002 producer/SDK 实测：Community alpha.4 已由 c1cdab0 实�
 2026-10-13 MCP-F2-CORE-001：Core当前alpha.8，委托目录/PAT隔离与条件audience已由fb1bc07实现306项producer验收；CoreSDKalpha.8仍17操作，37项/pack/真实HTTP+Keycloak新镜像回归；Ops415a108真实登记客户端对独立Communityalpha.4完整资源链验证通过。Community/Skin公共契约不变，CommunitySDK40项及真实HTTP回归过；源码Core来源锁升级随后独立切片处理。
 
 MCP-F2-COMMUNITY-003：Community源码来源锁alpha.8与最终两镜像消费组合完成，SDKproducer锚d482331并对新固定Core/Community镜像真实HTTP通过；12操作/alpha.4表面不变。
+
+2026-10-13 MCP-F4-CORE-001 契约侧：Core `0.1.0-alpha.9` 按 Foundation ADR-0018（所有者管理员后台派工+四项实答）锁定管理员只读查询面——新增 userOAuth scope `admin:read` 与六个只读操作（listAdminUsers/getAdminUser/listAdminCreditLedger/listAdminEntitlementRecords/listAdminAuditRecords/listAdminOutboxRecords），游标分页 limit 1..100 默认 20、字段封闭不含邮箱/subject/令牌机密；PAT 目录/App 委托目录/serviceOAuth 均不含 admin:read（机器校验锁定）。SDK 类型基线随 alpha.9 重生成、支持操作保持 17（六管理操作无 producer 证据不暴露，测试断言缺席）。生产者/Ops realm/apps/admin 管理台属 `MCP-F4-CORE-001` 本切片实施；管理写操作与 Community 队列/双人复核/申诉仍按 Q-010 与逐项所有者决策后置。

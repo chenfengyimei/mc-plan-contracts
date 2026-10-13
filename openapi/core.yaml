@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: MC Plan Core API
-  version: 0.1.0-alpha.8
+  version: 0.1.0-alpha.9
   description: >-
     Public business identity, profile, developer application, personal access
     token, entitlement, and credit surface. Keycloak remains the credential and
@@ -25,6 +25,14 @@ info:
     only while those scopes are approved. PAT scope catalog stays unchanged; moderation:review and service
     permissions cannot be delegated through this registry. Scope narrowing and revocation affect new
     authorizations, while already issued short-lived JWTs expire normally.
+    ADR-0018 opens the bounded F4-early admin console line: strictly
+    read-only administrative queries over the user directory, per-user
+    credit ledger, entitlement records, the audit trail and outbox
+    delivery state. Only realm-designated administrator users holding
+    the admin:read userOAuth scope with the ADMIN business role and an
+    ACTIVE account may call them; personal access tokens can never
+    obtain that scope and service tokens are rejected. No admin write
+    operation exists in this prerelease.
   license:
     name: Apache License 2.0
     identifier: Apache-2.0
@@ -43,6 +51,8 @@ tags:
     description: Audited global credit ledger consumption operations.
   - name: Events
     description: Consumer-pull delivery of internal events to authorized service consumers (ADR-0011).
+  - name: Admin
+    description: Read-only administrative query surfaces for realm-designated administrators (ADR-0018).
 security:
   - userOAuth: []
 paths:
@@ -641,6 +651,264 @@ paths:
           $ref: "#/components/responses/AccessForbidden"
         default:
           $ref: "#/components/responses/Problem"
+  /v1/admin/users:
+    get:
+      tags: [Admin]
+      operationId: listAdminUsers
+      summary: List MC Plan business users for administrators
+      description: >-
+        ADR-0018 bounded F4-early admin console face, strictly read-only.
+        Returns MC Plan business users newest first with opaque cursor
+        pagination. Only realm-designated administrator users holding the
+        admin:read userOAuth scope, the ADMIN business role and an ACTIVE
+        account may call this operation; personal access tokens can never
+        obtain admin:read and service tokens are rejected. The response never
+        includes identity emails, OIDC subjects or issuer claims.
+      x-mc-plan-stability: prerelease
+      security:
+        - userOAuth: [admin:read]
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          description: Maximum number of users returned per page.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - $ref: "#/components/parameters/PageCursor"
+      responses:
+        "200":
+          description: MC Plan business users
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/core/admin-user-page.json
+        "400":
+          $ref: "#/components/responses/ValidationFailed"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/AccessForbidden"
+        default:
+          $ref: "#/components/responses/Problem"
+  /v1/admin/users/{userId}:
+    parameters:
+      - $ref: "#/components/parameters/UserId"
+    get:
+      tags: [Admin]
+      operationId: getAdminUser
+      summary: Return one MC Plan business user for administrators
+      description: >-
+        Returns the administrative view of one MC Plan business user:
+        public display name, business status, business role, timestamps,
+        the non-negative credit balance and counts of linked identities,
+        developer applications and personal access tokens. The read is
+        strictly read-only and never includes identity emails, OIDC
+        subjects, issuer claims or token secrets. Unknown or malformed
+        identifiers respond 404 without revealing whether the account
+        exists.
+      x-mc-plan-stability: prerelease
+      security:
+        - userOAuth: [admin:read]
+      responses:
+        "200":
+          description: MC Plan business user administrative detail
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/core/admin-user.json
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/AccessForbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        default:
+          $ref: "#/components/responses/Problem"
+  /v1/admin/users/{userId}/credit-ledger:
+    parameters:
+      - $ref: "#/components/parameters/UserId"
+    get:
+      tags: [Admin]
+      operationId: listAdminCreditLedger
+      summary: List one user's credit ledger entries for administrators
+      description: >-
+        Returns the immutable credit ledger entries of one MC Plan user
+        newest first with opaque cursor pagination. Items carry the locked
+        CreditLedgerEntry fields plus the recorded reason and actor id -
+        the admin-only extension required by the manual-adjustment audit
+        rule. The read is strictly read-only: it never creates accounts,
+        ledger entries, audit records or outbox records.
+      x-mc-plan-stability: prerelease
+      security:
+        - userOAuth: [admin:read]
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          description: Maximum number of ledger entries returned per page.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - $ref: "#/components/parameters/PageCursor"
+      responses:
+        "200":
+          description: Credit ledger entries
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/core/admin-credit-ledger-page.json
+        "400":
+          $ref: "#/components/responses/ValidationFailed"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/AccessForbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        default:
+          $ref: "#/components/responses/Problem"
+  /v1/admin/users/{userId}/entitlement-records:
+    parameters:
+      - $ref: "#/components/parameters/UserId"
+    get:
+      tags: [Admin]
+      operationId: listAdminEntitlementRecords
+      summary: List one user's materialized daily entitlement records
+      description: >-
+        Returns the materialized DailyEntitlement rows of one MC Plan user
+        newest first with opaque cursor pagination, including the policy
+        module, operation, policy date and granted/consumed units. The
+        read is strictly read-only and never consumes quota; entitlements
+        materialize only on real consumption.
+      x-mc-plan-stability: prerelease
+      security:
+        - userOAuth: [admin:read]
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          description: Maximum number of entitlement records returned per page.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - $ref: "#/components/parameters/PageCursor"
+      responses:
+        "200":
+          description: Daily entitlement records
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/core/admin-entitlement-record-page.json
+        "400":
+          $ref: "#/components/responses/ValidationFailed"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/AccessForbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        default:
+          $ref: "#/components/responses/Problem"
+  /v1/admin/audit:
+    get:
+      tags: [Admin]
+      operationId: listAdminAuditRecords
+      summary: List the immutable audit trail for administrators
+      description: >-
+        Returns the immutable audit trail newest first with opaque cursor
+        pagination and an optional user filter. The metadata object is
+        action-specific and is exposed to administrators exactly as
+        recorded. The read is strictly read-only.
+      x-mc-plan-stability: prerelease
+      security:
+        - userOAuth: [admin:read]
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          description: Maximum number of audit records returned per page.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - $ref: "#/components/parameters/PageCursor"
+        - name: user_id
+          in: query
+          required: false
+          description: Only return audit records for this MC Plan user id.
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Audit records
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/core/admin-audit-record-page.json
+        "400":
+          $ref: "#/components/responses/ValidationFailed"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/AccessForbidden"
+        default:
+          $ref: "#/components/responses/Problem"
+  /v1/admin/outbox:
+    get:
+      tags: [Admin]
+      operationId: listAdminOutboxRecords
+      summary: List internal outbox delivery state for administrators
+      description: >-
+        Returns internal outbox records newest first with opaque cursor
+        pagination and an optional state filter, exposing event type,
+        delivery state, attempt count, delivery position and the bounded
+        last error exactly as recorded. The read is strictly read-only
+        and never mutates delivery state or consumer progress.
+      x-mc-plan-stability: prerelease
+      security:
+        - userOAuth: [admin:read]
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          description: Maximum number of outbox records returned per page.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - $ref: "#/components/parameters/PageCursor"
+        - name: state
+          in: query
+          required: false
+          description: Only return outbox records in this delivery state.
+          schema:
+            type: string
+            enum: [PENDING, PUBLISHED]
+      responses:
+        "200":
+          description: Outbox delivery records
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/core/admin-outbox-record-page.json
+        "400":
+          $ref: "#/components/responses/ValidationFailed"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/AccessForbidden"
+        default:
+          $ref: "#/components/responses/Problem"
 components:
   parameters:
     UserId:
@@ -672,6 +940,18 @@ components:
         type: string
         minLength: 8
         maxLength: 200
+    PageCursor:
+      name: cursor
+      in: query
+      required: false
+      description: >-
+        Opaque pagination cursor returned as next_cursor by the previous
+        page. Malformed or unknown cursors are rejected as validation
+        problems.
+      schema:
+        type: string
+        minLength: 1
+        maxLength: 512
   schemas:
     ConsumptionResult:
       type: object
@@ -882,6 +1162,7 @@ components:
             developer-apps:manage: Create, update, approve scopes for, or revoke the current user's developer applications
             pat:read: Read the current user's personal access token metadata
             pat:manage: Create or revoke the current user's personal access tokens
+            admin:read: Read MC Plan administrative query surfaces (realm-designated administrators only, ADR-0018)
     personalAccessToken:
       type: http
       scheme: bearer

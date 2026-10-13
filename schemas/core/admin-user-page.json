@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.mc-plan.example/core/admin-user-page.v1.json",
+  "title": "AdminUserPage",
+  "type": "object",
+  "required": ["items", "next_cursor"],
+  "properties": {
+    "items": {
+      "type": "array",
+      "items": { "$ref": "admin-user-summary.json" }
+    },
+    "next_cursor": {
+      "type": ["string", "null"],
+      "description": "Opaque cursor after the last returned user. Null when no older users remain."
+    }
+  },
+  "additionalProperties": false
+}

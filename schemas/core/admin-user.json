@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.mc-plan.example/core/admin-user.v1.json",
+  "title": "AdminUser",
+  "type": "object",
+  "required": [
+    "user_id",
+    "display_name",
+    "status",
+    "role",
+    "created_at",
+    "updated_at",
+    "credit_balance",
+    "identity_links_count",
+    "developer_apps_count",
+    "personal_access_tokens_count"
+  ],
+  "properties": {
+    "user_id": { "type": "string", "minLength": 1 },
+    "display_name": { "type": "string", "minLength": 1, "maxLength": 80 },
+    "status": { "type": "string", "enum": ["ACTIVE", "SUSPENDED", "CLOSED", "SECURITY_HOLD"] },
+    "role": { "type": "string", "enum": ["USER", "CREATOR", "DEVELOPER", "MODERATOR", "ADMIN"] },
+    "created_at": { "type": "string", "format": "date-time" },
+    "updated_at": { "type": "string", "format": "date-time" },
+    "credit_balance": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Non-negative balance projection; an existing user without a credit account reads zero."
+    },
+    "identity_links_count": { "type": "integer", "minimum": 0 },
+    "developer_apps_count": { "type": "integer", "minimum": 0 },
+    "personal_access_tokens_count": { "type": "integer", "minimum": 0 }
+  },
+  "additionalProperties": false
+}

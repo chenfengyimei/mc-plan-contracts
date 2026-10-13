@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.mc-plan.example/core/admin-outbox-record.v1.json",
+  "title": "AdminOutboxRecord",
+  "type": "object",
+  "required": ["record_id", "user_id", "event_type", "state", "attempt_count", "created_at"],
+  "properties": {
+    "record_id": { "type": "string", "minLength": 1 },
+    "user_id": { "type": "string", "minLength": 1 },
+    "event_type": { "type": "string", "minLength": 1, "maxLength": 160 },
+    "state": { "type": "string", "enum": ["PENDING", "PUBLISHED"] },
+    "attempt_count": { "type": "integer", "minimum": 0 },
+    "delivery_position": {
+      "type": ["integer", "null"],
+      "minimum": 0,
+      "description": "Publish-order position assigned atomically at PUBLISHED time; null while pending."
+    },
+    "last_error": {
+      "type": ["string", "null"],
+      "maxLength": 512,
+      "description": "Bounded last delivery error exactly as recorded, if any."
+    },
+    "created_at": { "type": "string", "format": "date-time" },
+    "published_at": { "type": ["string", "null"], "format": "date-time" }
+  },
+  "additionalProperties": false
+}

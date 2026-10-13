@@ -1,0 +1,42 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.mc-plan.example/core/admin-credit-ledger-entry.v1.json",
+  "title": "AdminCreditLedgerEntry",
+  "type": "object",
+  "required": [
+    "entry_id",
+    "user_id",
+    "kind",
+    "amount",
+    "balance_before",
+    "balance_after",
+    "source",
+    "reason",
+    "actor_id",
+    "created_at"
+  ],
+  "properties": {
+    "entry_id": { "type": "string", "minLength": 1 },
+    "user_id": { "type": "string", "minLength": 1 },
+    "kind": { "type": "string", "enum": ["grant", "consume", "refund", "adjustment"] },
+    "amount": { "type": "integer" },
+    "balance_before": { "type": "integer", "minimum": 0 },
+    "balance_after": { "type": "integer", "minimum": 0 },
+    "source": { "type": "string", "minLength": 1 },
+    "reference_id": { "type": ["string", "null"] },
+    "reason": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "description": "Recorded reason exactly as written to the immutable ledger; manual adjustments must carry the administrator reason."
+    },
+    "actor_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255,
+      "description": "Actor identity recorded with the entry (administrator or service caller)."
+    },
+    "created_at": { "type": "string", "format": "date-time" }
+  },
+  "additionalProperties": false
+}

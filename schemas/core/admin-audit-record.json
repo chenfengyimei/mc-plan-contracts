@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.mc-plan.example/core/admin-audit-record.v1.json",
+  "title": "AdminAuditRecord",
+  "type": "object",
+  "required": ["audit_id", "user_id", "action", "target_id", "metadata", "created_at"],
+  "properties": {
+    "audit_id": { "type": "string", "minLength": 1 },
+    "user_id": { "type": "string", "minLength": 1 },
+    "action": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "target_id": { "type": "string", "minLength": 1 },
+    "metadata": {
+      "type": "object",
+      "description": "Action-specific audit metadata exactly as recorded in the immutable audit trail."
+    },
+    "created_at": { "type": "string", "format": "date-time" }
+  },
+  "additionalProperties": false
+}

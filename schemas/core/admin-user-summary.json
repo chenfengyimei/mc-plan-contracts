@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.mc-plan.example/core/admin-user-summary.v1.json",
+  "title": "AdminUserSummary",
+  "type": "object",
+  "required": ["user_id", "display_name", "status", "role", "created_at"],
+  "properties": {
+    "user_id": { "type": "string", "minLength": 1 },
+    "display_name": { "type": "string", "minLength": 1, "maxLength": 80 },
+    "status": { "type": "string", "enum": ["ACTIVE", "SUSPENDED", "CLOSED", "SECURITY_HOLD"] },
+    "role": { "type": "string", "enum": ["USER", "CREATOR", "DEVELOPER", "MODERATOR", "ADMIN"] },
+    "created_at": { "type": "string", "format": "date-time" }
+  },
+  "additionalProperties": false
+}

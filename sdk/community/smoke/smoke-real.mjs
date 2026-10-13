@@ -34,8 +34,8 @@ function resolveDocker() {
 }
 
 const docker = resolveDocker();
-const COMMUNITY_IMAGE = 'mc-plan-community:mcp-f2-community-002-c1cdab0';
-const CORE_IMAGE = 'mc-plan-core:mcp-f1-core-012-closeout';
+const COMMUNITY_IMAGE = 'mc-plan-community:mcp-f2-community-003-d482331';
+const CORE_IMAGE = 'mc-plan-core:mcp-f2-core-001-fb1bc07';
 const PG_IMAGE = process.env.SMOKE_PG_IMAGE ?? 'postgres:17-alpine';
 const RUN = `mcp-c002-community-sdk-${process.pid}`;
 const NETWORK = `${RUN}-net`;

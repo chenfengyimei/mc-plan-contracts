@@ -147,3 +147,7 @@ MCP-F2-COMMUNITY-002：Contracts 锁 f52859c → Community producer c1cdab0（al
 ## Core alpha.8 producer / SDK / 官方 Community OAuth 消费者组合
 
 MCP-F2-CORE-001：Contracts ebb00a6 → Core fb1bc07及固定镜像mc-plan-core:mcp-f2-core-001-fb1bc07（sha256:2c9ee8fba75c79dbdabe904533bfe60bca340eb8e0fddb7d5b346b74fa389867）→ CoreSDKalpha.8（仍17方法）。121单元+86HTTP E2E+25契约+74真实PG/Keycloak集成=306，8既有迁移及strict/build全通过。CoreSDK37测试/生成零漂移/干净pack与新镜像真实HTTP+Keycloak通过，CommunitySDK40测试/pack/真实HTTP回归过。Ops415a108独立真实消费证据：Core登记public客户端→真实S256 PKCE→双audience同Core业务ID→Communityalpha.4运行镜像签名PUT/完成封存/版本/202待审→指定realm审核员真实review API决定→同哈希preview/作者下架404；普通请求审核scope不能自授权，新授权收窄/撤销拒绝，非root/DB故障拒绝通过。只有合成角色夹具使用SQL，publication无SQL旁路；测试内容/许可/S3rver限定保留。旧客户端生命周期脚本对新镜像回归通过。Community运行API消费组合兼容，源码生成锁从Corealpha.7升级是后续独立消费者切片，未冒称其源码已同步。无稳定发布/生产部署/完整F2/F4完成。
+
+## Communityalpha.4 → Corealpha.8 来源与运行闭环
+
+MCP-F2-COMMUNITY-003将producer的Core来源从alpha.7升级alpha.8（联合API源snapshot481cc85，11哈希重算、类型再生成零漂移）。Community d482331、镜像mc-plan-community:mcp-f2-community-003-d482331（sha256:116a9003526d0fd758e2fae2bd14d2a338ee23c6207bec077854ff4482ee3e5f）→ Core镜像mc-plan-core:mcp-f2-core-001-fb1bc07；56项producer/严格检查、真实Keycloak与两模式runtime全过。CommunitySDKalpha.4十二方法，producer锚d482331，40项/生成/pack/两新镜像真实HTTP通过。CoreSDKalpha.8生成零漂移及前一工作流真实HTTP/Keycloak证据保留。原Community/Skin契约无变化；此前“来源锁待独立升级”门槛已由该切片关闭。未宣称完整F2/F4或生产对象/恢复验收。

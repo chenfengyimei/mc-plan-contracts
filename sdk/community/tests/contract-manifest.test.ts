@@ -36,7 +36,7 @@ describe('supported contract manifest', () => {
     expect(SUPPORTED_OPERATIONS).not.toContain('someFutureOperation');
     expect(SUPPORTED_CONTRACT_VERSION).toBe('0.1.0-alpha.4');
     expect(SUPPORTED_CONTRACT_LOCK_COMMIT).toBe('f52859c16bde93dfa054e307201c6b5c2e778461');
-    expect(SUPPORTED_PRODUCER_COMMIT).toBe('c1cdab0ee0d76d2f682f178d4f0a5d5e0a2a42e5');
+    expect(SUPPORTED_PRODUCER_COMMIT).toBe('d482331a874b73b313601a58f1d83c3d11f03fe7');
   });
 
   it('matches the sha256 of every contract file consumed by generation', async () => {

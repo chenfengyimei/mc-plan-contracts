@@ -1,7 +1,7 @@
 /** MCP-F2-COMMUNITY-002: producer-verified manual review and inline preview; no future methods. */
 export const SUPPORTED_CONTRACT_VERSION = '0.1.0-alpha.4' as const;
 export const SUPPORTED_CONTRACT_LOCK_COMMIT = 'f52859c16bde93dfa054e307201c6b5c2e778461' as const;
-export const SUPPORTED_PRODUCER_COMMIT = 'c1cdab0ee0d76d2f682f178d4f0a5d5e0a2a42e5' as const;
+export const SUPPORTED_PRODUCER_COMMIT = 'd482331a874b73b313601a58f1d83c3d11f03fe7' as const;
 export const SUPPORTED_CONTRACT_FILES = {
   'openapi/community.yaml': 'e1ad262e342c853cd632e889f33357ad2a7438acd01e9fbc2f7acabf21ab044e',
   'schemas/common/problem.json': '80d6abfca67ccac9e22d83542134755c6126cae2696afbaa4c85efaceec4ba11',

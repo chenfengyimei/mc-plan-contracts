@@ -70,3 +70,5 @@ pnpm --dir sdk/community smoke:real   # 固定镜像 + 隔离 PostgreSQL/Core/S3
 Python SDK 在出现明确第三方需求前不启动（见 `docs/sdk.md`）。
 
 审核调用必须注入指定审核员的 `moderation:review` + `profile:read` 令牌，作者写令牌不可代替。reviewResourceVersion 的 approve/reject 和可选 1–1000 字原因只针对指定当前待审候选；同键不同决定/目标冲突，不能翻转既有决定，下架终态。真实 smoke 使用授权 review API 让合成内容公开，不再通过 SQL 改决定。
+
+MCP-F2-COMMUNITY-003：Community producer来源锁与夹具升级至Corealpha.8（ebb00a6）；12操作/alpha.4契约不变。当前smoke使用Community镜像mcp-f2-community-003-d482331与Core镜像mcp-f2-core-001-fb1bc07，producer锚d482331，明确独立Core API消费组合。

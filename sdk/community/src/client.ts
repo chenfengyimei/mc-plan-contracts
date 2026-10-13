@@ -21,6 +21,8 @@ export type CreateResourceRequest =
   operations['createResource']['requestBody']['content']['application/json'];
 export type CreateResourceVersionRequest =
   operations['createResourceVersion']['requestBody']['content']['application/json'];
+export type ReviewResourceVersionRequest =
+  operations['reviewResourceVersion']['requestBody']['content']['application/json'];
 export type ResourceDetail =
   operations['getResource']['responses']['200']['content']['application/json'];
 
@@ -85,9 +87,9 @@ function validateCursor(cursor: string): void {
 }
 
 /**
- * Producer-verified client for the ten supported Community 0.1.0-alpha.2
+ * Producer-verified client for the twelve supported Community 0.1.0-alpha.4
  * operations. Every method maps 1:1 to a locked operationId; see
- * SUPPORTED_OPERATIONS. All six mutations declare a required
+ * SUPPORTED_OPERATIONS. All seven mutations declare a required
  * Idempotency-Key (8..200 characters): retries replay the exact same key and
  * request, so a same-key/same-request replay returns the original recorded
  * response while a same-key/different-request is rejected 409
@@ -364,11 +366,53 @@ export class McPlanCommunityClient {
     versionId: string,
     signal?: AbortSignal,
   ): Promise<DownloadedVersionFile> {
+    return this.versionBytes(resourceId, versionId, 'download', signal);
+  }
+
+  /** Anonymous inline preview of the same immutable, currently published PNG bytes. */
+  public async previewResourceVersion(
+    resourceId: string,
+    versionId: string,
+    signal?: AbortSignal,
+  ): Promise<DownloadedVersionFile> {
+    return this.versionBytes(resourceId, versionId, 'preview', signal);
+  }
+
+  /** Requires a designated reviewer's moderation:review + profile:read user token. */
+  public async reviewResourceVersion(
+    resourceId: string,
+    versionId: string,
+    input: ReviewResourceVersionRequest,
+    idempotencyKey: string,
+    init: { signal?: AbortSignal | undefined } = {},
+  ): Promise<CommunityResource> {
+    if (
+      !['approve', 'reject'].includes(input.decision) ||
+      (input.reason !== undefined && (input.reason.length < 1 || input.reason.length > 1000))
+    )
+      throw new RangeError(
+        'review requires approve/reject and an optional 1..1000 character reason',
+      );
+    return this.command(
+      'POST',
+      `/v1/resources/${encodePathSegment(resourceId)}/versions/${encodePathSegment(versionId)}/review`,
+      input,
+      idempotencyKey,
+      init,
+    );
+  }
+
+  private async versionBytes(
+    resourceId: string,
+    versionId: string,
+    face: 'download' | 'preview',
+    signal?: AbortSignal,
+  ): Promise<DownloadedVersionFile> {
     const headers = new Headers({ Accept: 'image/png' });
     const response = await transportSend(
       {
         method: 'GET',
-        url: `${this.baseUrl}/v1/resources/${encodePathSegment(resourceId)}/versions/${encodePathSegment(versionId)}/download`,
+        url: `${this.baseUrl}/v1/resources/${encodePathSegment(resourceId)}/versions/${encodePathSegment(versionId)}/${face}`,
         headers: Object.fromEntries(headers.entries()),
         signal,
         idempotent: true,

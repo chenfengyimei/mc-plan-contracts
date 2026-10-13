@@ -1,38 +1,7 @@
-/**
- * Explicit supported-operation manifest for the Community SDK.
- *
- * The SDK only exposes operations whose contract semantics are locked in
- * `openapi/community.yaml` at 0.1.0-alpha.4 AND whose producer passed the
- * MCP-F2-COMMUNITY-001 acceptance (13 unit, 2 locked-contract and 30
- * integration tests including real PostgreSQL/S3-protocol flows, real
- * Keycloak 26.8 PKCE and the runtime image smoke on
- * mc-plan-community:mcp-f2-community-001-779803e). The alpha.3 inline preview
- * operation (previewResourceVersion) is locked in the contract but has NO
- * producer implementation yet, so it must not gain a callable method until
- * the portal workflow provides producer evidence; future surfaces must not
- * be pre-invented here either.
- */
-
-/** Contract prerelease version the generated types and transport are built from. */
+/** MCP-F2-COMMUNITY-002: producer-verified manual review and inline preview; no future methods. */
 export const SUPPORTED_CONTRACT_VERSION = '0.1.0-alpha.4' as const;
-
-/** Contracts commit that locked the 0.1.0-alpha.4 surface (verify against docs/compatibility.md). */
 export const SUPPORTED_CONTRACT_LOCK_COMMIT = 'f52859c16bde93dfa054e307201c6b5c2e778461' as const;
-
-/**
- * Producer commit of mc-plan-community verified against the supported
- * operations: the MCP-F2-COMMUNITY-001 final tree, which implements the ten
- * alpha.2 operations and passed the full producer gate suite plus the
- * canonical runtime image acceptance.
- */
-export const SUPPORTED_PRODUCER_COMMIT = '70e55a1375e8afe6e26451d861d819996d698c58' as const;
-
-/**
- * sha256 of every contract file consumed by the type generation, relative to
- * the mc-plan-contracts repository root. Mirrors the alpha.3 lock manifest;
- * tests recompute these at run time so any contract edit that is not
- * regenerated fails `generate:check` and `test`.
- */
+export const SUPPORTED_PRODUCER_COMMIT = 'c1cdab0ee0d76d2f682f178d4f0a5d5e0a2a42e5' as const;
 export const SUPPORTED_CONTRACT_FILES = {
   'openapi/community.yaml': 'e1ad262e342c853cd632e889f33357ad2a7438acd01e9fbc2f7acabf21ab044e',
   'schemas/common/problem.json': '80d6abfca67ccac9e22d83542134755c6126cae2696afbaa4c85efaceec4ba11',
@@ -47,15 +16,7 @@ export const SUPPORTED_CONTRACT_FILES = {
   'schemas/skin/skin-metadata.json':
     'b051b01ae11411e65442f3fbf0d89cb85aa4373915a317d62dfb47cf84bf6f3a',
 } as const;
-
 export type SupportedContractFile = keyof typeof SUPPORTED_CONTRACT_FILES;
-
-/**
- * The only operationIds this SDK exposes. Every one of the ten producer
- * faces is verified by MCP-F2-COMMUNITY-001 (HTTP integration coverage plus
- * the runtime image smoke). previewResourceVersion is deliberately excluded:
- * its alpha.3 contract has no producer implementation yet.
- */
 export const SUPPORTED_OPERATIONS = [
   'createUploadSession',
   'completeUploadSession',
@@ -67,6 +28,7 @@ export const SUPPORTED_OPERATIONS = [
   'listResources',
   'listAuthorResources',
   'downloadResourceVersion',
+  'previewResourceVersion',
+  'reviewResourceVersion',
 ] as const;
-
 export type SupportedOperation = (typeof SUPPORTED_OPERATIONS)[number];

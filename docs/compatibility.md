@@ -135,3 +135,7 @@ Core 消费组合单独记录：Community `779803e` → Core API alpha.7、Core 
 ## Community `0.1.0-alpha.4` 兼容分类
 
 在 alpha.3 上预发布兼容新增（本地人工审核），按 Foundation ADR-0016 新增 `moderation:review` + `profile:read` 的 `reviewResourceVersion`，POST 指定不可变候选，闭合 approve/reject 与可选原因，必填幂等键，200 Resource。身份 realm 仅将审核 scope 授予指定用户，作者不能以请求 scope 自授权。404 未知/失配，409 非当前待审/已决定/终态，503 禁用/依赖故障保持待审；单人批准、拒绝替换保留旧版、事务审计/outbox。不扩展私有读取权限或队列。原十一操作及 Core/Skin 文件不变。部署顺序：本契约锁 → Community producer 与实际身份/并发/故障验证 → SDK → 消费者；SDK 仍只暴露已有证据的十操作，preview/review 待 producer 后开放。回退关闭审核模式，已有发布/决定不可被反转；不以回退删库。
+
+## Community alpha.4 producer / SDK 本地组合
+
+MCP-F2-COMMUNITY-002：Contracts 锁 f52859c → Community producer c1cdab0（alpha.4，12 操作）→ Community SDK alpha.4。Producer 实跑13单元、3契约、40集成（真实 PostgreSQL/S3、Keycloak26.8 S256 PKCE 的 realm role 限制、并发决定、替换拒绝、下架/旧租约隔离、存储故障及审计失败全事务回滚）。SDK 40 单元、严格静态/build/pack 干净消费者全部通过；对固定镜像 mc-plan-community:mcp-f2-community-002-c1cdab0、独立 Core/DB/S3/本地 JWKS 的真实 HTTP smoke 通过，十二方法含授权 review 与匿名 preview；全部合成内容通过真实审核 API，不再 SQL 放行。Core SDK 37测试、pack与真实HTTP/Keycloak smoke回归通过，Core/Skin公共契约未变。SDK使用本地JWKS与producer真实Keycloak证据分开记录；SDK包仍private，本地pack，真实产品消费者/稳定发行/生产部署与完整F2/F4不在此证据范围。

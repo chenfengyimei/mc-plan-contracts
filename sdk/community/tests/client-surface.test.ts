@@ -514,3 +514,40 @@ describe('McPlanCommunityClient boundaries', () => {
     );
   });
 });
+
+describe('manual review and inline preview', () => {
+  it('preview is anonymous, encodes version IDs and preserves exact response bytes', async () => {
+    const api = await startApi(() => ({ status: 200, body: 'immutable-bytes' }));
+    cleanup = api.server;
+    const client = makeClient(api.baseUrl);
+    const result = await client.previewResourceVersion('resource/a', 'version b');
+    expect(Buffer.from(result.bytes).toString()).toBe('immutable-bytes');
+    expect(api.requests[0]?.url).toBe('/v1/resources/resource%2Fa/versions/version%20b/preview');
+    expect(api.requests[0]?.headers['authorization']).toBeUndefined();
+  });
+  it('review sends authenticated closed decision with stable idempotency key and bounded reason', async () => {
+    const api = await startApi(() => ({ status: 200, body: resourceBody }));
+    cleanup = api.server;
+    const client = makeClient(api.baseUrl),
+      input = { decision: 'reject' as const, reason: 'Synthetic fixture' };
+    await client.reviewResourceVersion('resource/a', 'version b', input, 'review-key-123');
+    expect(api.requests[0]).toMatchObject({
+      method: 'POST',
+      url: '/v1/resources/resource%2Fa/versions/version%20b/review',
+      body: JSON.stringify(input),
+    });
+    expect(api.requests[0]?.headers).toMatchObject({
+      authorization: 'Bearer oidc-user-token',
+      'idempotency-key': 'review-key-123',
+    });
+    await expect(
+      client.reviewResourceVersion(
+        'r',
+        'v',
+        { decision: 'reject', reason: 'x'.repeat(1001) },
+        'review-key-123',
+      ),
+    ).rejects.toThrow(RangeError);
+    expect(api.requests).toHaveLength(1);
+  });
+});

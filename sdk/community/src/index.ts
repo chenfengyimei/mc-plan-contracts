@@ -49,6 +49,7 @@ export {
   type ResourceFile,
   type ResourcePage,
   type ResourceVersion,
+  type ReviewResourceVersionRequest,
   type SkinMetadata,
   type UploadSession,
 } from './client.js';

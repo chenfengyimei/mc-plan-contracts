@@ -1,37 +1,5 @@
 #!/usr/bin/env node
-/**
- * Real-HTTP smoke for @mc-plan/community-sdk, run against the fixed
- * MCP-F2-COMMUNITY-001 producer image
- * (mc-plan-community:mcp-f2-community-001-779803e) and replicating that
- * workflow's runtime acceptance dependency form:
- *
- * - two isolated PostgreSQL 17 containers (one for Community, one for Core);
- * - a real Core container (mc-plan-core:mcp-f1-core-012-closeout) resolving
- *   the active business identity for every protected Community request via
- *   the public GET /v1/me surface — exactly the producer's "separate Core
- *   identity" form;
- * - a local JWKS test issuer (RS256, jose). Those tokens are honestly
- *   attributed as local-JWKS-signed; they are NOT Keycloak tokens. The
- *   producer's own runtime image smoke used the same local-issuer form;
- *   its real-Keycloak PKCE coverage lives in the producer's integration
- *   tests, which are not re-run here;
- * - the producer's own S3rver S3-protocol server (spawned from the
- *   neighboring mc-plan-community checkout's installed dev dependency,
- *   read-only use; no file of that repository is modified), with split
- *   service/public endpoints so the signed PUT is exercised from the host
- *   exactly like the producer's browser-reachable acceptance;
- * - runtime moderation stays disabled (Q-009): publishResource keeps
- *   resources pending_moderation. The only [SYNTHETIC-DB-SEED] fixture in
- *   this smoke mirrors the producer's APPROVED-moderation database writes
- *   (resource_versions.review_state/published_at + resources.state/
- *   current_version_id) to make list/detail/download positive paths
- *   observable against the fixed image; every byte still passes through the
- *   real signed-PUT → complete → seal path first.
- *
- * Not a mock transport: the SDK talks to the real running containers.
- * Resources (network, containers, volumes, S3 directory) are session-unique
- * and cleaned up in finally; nothing from other sessions is touched.
- */
+/** Real HTTP alpha.4 SDK acceptance: final Community image, isolated Core/DB/S3, LOCAL-JWKS user/reviewer tokens. All review decisions use the real authorized API with synthetic content; no database decision seed. Producer separately verifies real realm-gated Keycloak PKCE. Session resources are cleaned in finally. */
 
 import { execFileSync, spawn } from 'node:child_process';
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
@@ -66,7 +34,7 @@ function resolveDocker() {
 }
 
 const docker = resolveDocker();
-const COMMUNITY_IMAGE = 'mc-plan-community:mcp-f2-community-001-779803e';
+const COMMUNITY_IMAGE = 'mc-plan-community:mcp-f2-community-002-c1cdab0';
 const CORE_IMAGE = 'mc-plan-core:mcp-f1-core-012-closeout';
 const PG_IMAGE = process.env.SMOKE_PG_IMAGE ?? 'postgres:17-alpine';
 const RUN = `mcp-c002-community-sdk-${process.pid}`;
@@ -284,10 +252,6 @@ async function main() {
     },
     90_000,
   );
-  const communityPsql = (sql) =>
-    dockerRun(['exec', COMMUNITY_PG, 'psql', '-U', 'community', '-d', 'community', '-qAtc', sql])
-      .trim()
-      .split('\n');
 
   // 2. Local JWKS test issuer on the host (honestly attributed: NOT Keycloak).
   const rsa = await generateKeyPair('RS256');
@@ -469,7 +433,7 @@ async function main() {
     '-e',
     'WORKER_INTERVAL_MS=250',
     '-e',
-    'MODERATION_MODE=disabled',
+    'MODERATION_MODE=manual',
   ];
   dockerRun(
     [
@@ -523,6 +487,12 @@ async function main() {
       .setSubject(payload.sub)
       .sign(rsa.privateKey);
   const fullScopes = 'profile:read resource:read resource:write upload:write';
+  const reviewerToken = await sign({
+    sub: 'community-sdk-smoke-reviewer',
+    scope: 'profile:read moderation:review',
+    email_verified: true,
+    azp: 'community-sdk-smoke-browser',
+  });
   const userAToken = await sign({
     sub: 'community-sdk-smoke-user-a',
     scope: fullScopes,
@@ -568,6 +538,10 @@ async function main() {
   );
 
   const { createMcPlanCommunityClient, generateIdempotencyKey } = await import('../dist/index.js');
+  const reviewerClient = createMcPlanCommunityClient({
+    baseUrl,
+    getUserToken: async () => reviewerToken,
+  });
   const clientA = createMcPlanCommunityClient({
     baseUrl,
     getUserToken: async () => userAToken,
@@ -751,7 +725,7 @@ async function main() {
   assertEqual((await rawOversize.json()).code, 'VALIDATION_FAILED', 'raw over-limit problem code');
 
   // 10. [REAL-PRODUCER-HTTP] Version attach + publish request keep the
-  // resource private until moderation allows it (Q-009: runtime disabled).
+  // resource private until moderation allows it (ADR-0016: no decision yet).
   const versionA = await clientA.createResourceVersion(
     resourceA.resource_id,
     {
@@ -770,7 +744,11 @@ async function main() {
     resourceA.resource_id,
     generateIdempotencyKey(),
   );
-  assertEqual(publishRequested.status, 'pending_moderation', 'disabled moderation keeps pending');
+  assertEqual(
+    publishRequested.status,
+    'pending_moderation',
+    'manual review without a decision keeps pending',
+  );
 
   // 10.1 [REAL-PRODUCER-HTTP] Owner authenticated view sees the private
   // candidate; the anonymous read stays 404 without exposing state.
@@ -822,18 +800,49 @@ async function main() {
     'foreign owner cannot unpublish',
   );
 
-  // 11. [SYNTHETIC-DB-SEED] Runtime moderation is disabled by design (Q-009),
-  // so no public moderation decision exists on the fixed image. Mirror the
-  // producer's own APPROVED-moderation database writes (see its ResourceWorker
-  // review path) so the published read/list/download surfaces become
-  // observable. Bytes still went through the real signed PUT → verify → seal
-  // path above; only the decision is the labeled synthetic fixture.
-  console.log('[smoke] [SYNTHETIC-DB-SEED] seeding APPROVED review for resource A');
-  communityPsql(
-    `update resource_versions set review_state = 'APPROVED', published_at = now() where id = '${versionA.version_id}'`,
+  // 11. Real authorized manual decision on synthetic content; no database bypass.
+  await expectProblem(
+    clientA.reviewResourceVersion(
+      resourceA.resource_id,
+      versionA.version_id,
+      { decision: 'approve' },
+      generateIdempotencyKey(),
+    ),
+    403,
+    'INSUFFICIENT_SCOPE',
+    'author cannot approve',
   );
-  communityPsql(
-    `update resources set state = 'published', current_version_id = '${versionA.version_id}' where id = '${resourceA.resource_id}'`,
+  const reviewKey = generateIdempotencyKey(),
+    reviewBody = { decision: 'approve', reason: 'SYNTHETIC local operator fixture' };
+  const reviewed = await reviewerClient.reviewResourceVersion(
+    resourceA.resource_id,
+    versionA.version_id,
+    reviewBody,
+    reviewKey,
+  );
+  assertEqual(reviewed.status, 'published', 'review publishes exact candidate');
+  assertEqual(reviewed.current_version_id, versionA.version_id, 'reviewed current version');
+  const reviewReplay = await reviewerClient.reviewResourceVersion(
+    resourceA.resource_id,
+    versionA.version_id,
+    reviewBody,
+    reviewKey,
+  );
+  assertEqual(
+    reviewReplay.current_version_id,
+    reviewed.current_version_id,
+    'manual decision replay',
+  );
+  await expectProblem(
+    reviewerClient.reviewResourceVersion(
+      resourceA.resource_id,
+      versionA.version_id,
+      { decision: 'reject' },
+      reviewKey,
+    ),
+    409,
+    'IDEMPOTENCY_KEY_CONFLICT',
+    'review key cannot change decision',
   );
 
   // 12. [REAL-PRODUCER-HTTP] Published anonymous read, author list and
@@ -855,6 +864,15 @@ async function main() {
         `/v1/resources/${resourceA.resource_id}/versions/${publicVersion.version_id}/download`,
       ),
     'published version exposes the controlled download URL',
+  );
+  const inline = await createMcPlanCommunityClient({ baseUrl }).previewResourceVersion(
+    resourceA.resource_id,
+    publicView.versions[0].version_id,
+  );
+  assertEqual(
+    createHash('sha256').update(inline.bytes).digest('hex'),
+    SKIN_SHA256,
+    'inline preview is exact sealed PNG',
   );
   const downloaded = await createMcPlanCommunityClient({ baseUrl }).downloadResourceVersion(
     resourceA.resource_id,
@@ -878,7 +896,7 @@ async function main() {
   assertEqual(rawDownload.headers.get('cache-control'), 'no-store', 'download no-store');
 
   // 13. [REAL-PRODUCER-HTTP] Two more published resources (real lifecycle +
-  // the same labeled decision seed) to exercise deterministic pagination.
+  // authorized manual decisions) to exercise deterministic pagination.
   const publishedResources = [resourceA];
   for (const [index, title] of ['Pagination fixture B', 'Pagination fixture C'].entries()) {
     const resource = await clientA.createResource(
@@ -916,12 +934,11 @@ async function main() {
       generateIdempotencyKey(),
     );
     await clientA.publishResource(resource.resource_id, generateIdempotencyKey());
-    console.log(`[smoke] [SYNTHETIC-DB-SEED] seeding APPROVED review for ${title}`);
-    communityPsql(
-      `update resource_versions set review_state = 'APPROVED', published_at = now() where id = '${version.version_id}'`,
-    );
-    communityPsql(
-      `update resources set state = 'published', current_version_id = '${version.version_id}' where id = '${resource.resource_id}'`,
+    await reviewerClient.reviewResourceVersion(
+      resource.resource_id,
+      version.version_id,
+      { decision: 'approve', reason: 'SYNTHETIC pagination fixture' },
+      generateIdempotencyKey(),
     );
     publishedResources.push(resource);
   }
@@ -1087,6 +1104,23 @@ async function main() {
     'NOT_FOUND',
     'download after unpublish',
   );
+  await expectProblem(
+    anonClient.previewResourceVersion(resourceA.resource_id, publicVersion.version_id),
+    404,
+    'NOT_FOUND',
+    'preview after unpublish',
+  );
+  await expectProblem(
+    reviewerClient.reviewResourceVersion(
+      resourceA.resource_id,
+      publicVersion.version_id,
+      { decision: 'approve' },
+      generateIdempotencyKey(),
+    ),
+    409,
+    'RESOURCE_STATE_CONFLICT',
+    'review cannot revive unpublish',
+  );
   const afterUnpublish = await anonClient.listResources({ limit: 100 });
   assert(
     !afterUnpublish.items.some((item) => item.resource_id === resourceA.resource_id),
@@ -1098,7 +1132,7 @@ async function main() {
   // createUploadSession (9), completeUploadSession (9/13), createResource
   // (8/13/15), createResourceVersion (10/13), publishResource (10/13),
   // getResource (10.1/12/15), listResources (7/13.1), listAuthorResources
-  // (13.2), downloadResourceVersion (12), unpublishResource (16).
+  // (13.2), downloadResourceVersion (12), unpublishResource (16), reviewResourceVersion (11/13), previewResourceVersion (12/16).
   console.log('[smoke] all scenarios passed ✔');
 }
 

@@ -460,3 +460,165 @@ describe('McPlanCoreClient deactivation surface (alpha.7 deactivateCurrentUser)'
     expect(api.requests).toHaveLength(0);
   });
 });
+
+const adminUserSummary = {
+  user_id: 'usr_1',
+  display_name: 'Ada Admin',
+  status: 'ACTIVE',
+  role: 'USER',
+  created_at: '2026-10-13T00:00:00Z',
+};
+const adminUserPageBody = JSON.stringify({ items: [adminUserSummary], next_cursor: 'cursor-1' });
+const adminUserDetailBody = JSON.stringify({
+  user_id: 'usr_1',
+  display_name: 'Ada Admin',
+  status: 'ACTIVE',
+  role: 'USER',
+  created_at: '2026-10-13T00:00:00Z',
+  updated_at: '2026-10-13T00:00:00Z',
+  credit_balance: 0,
+  identity_links_count: 1,
+  developer_apps_count: 0,
+  personal_access_tokens_count: 0,
+});
+const adminEmptyPageBody = JSON.stringify({ items: [], next_cursor: null });
+
+describe('McPlanCoreClient admin read-only surface (ADR-0018)', () => {
+  it('sends the user token to GET /v1/admin/users and types the page', async () => {
+    const api = await startApi((request) => {
+      if (request.url.startsWith('/v1/admin/users')) {
+        return { status: 200, body: adminUserPageBody };
+      }
+      return { status: 404, body: '{}' };
+    });
+    cleanup = api.server;
+    const page = await makeClient(api.baseUrl).listAdminUsers();
+    expect(page.items).toHaveLength(1);
+    expect(page.items[0]).toEqual(adminUserSummary);
+    expect(page.next_cursor).toBe('cursor-1');
+    expect(api.requests[0]?.method).toBe('GET');
+    expect(api.requests[0]?.url).toBe('/v1/admin/users');
+    expect(api.requests[0]?.headers.authorization).toBe('Bearer oidc-user-token');
+  });
+
+  it('forwards limit and the opaque cursor as the only query parameters', async () => {
+    const api = await startApi(() => ({ status: 200, body: adminUserPageBody }));
+    cleanup = api.server;
+    await makeClient(api.baseUrl).listAdminUsers({ limit: 5, cursor: 'cursor-1' });
+    expect(api.requests[0]?.url).toBe('/v1/admin/users?limit=5&cursor=cursor-1');
+  });
+
+  it('rejects out-of-range limits and malformed cursors client-side without sending', async () => {
+    const api = await startApi(() => ({ status: 200, body: adminUserPageBody }));
+    cleanup = api.server;
+    const client = makeClient(api.baseUrl);
+    await expect(client.listAdminUsers({ limit: 0 })).rejects.toThrow(RangeError);
+    await expect(client.listAdminUsers({ limit: 101 })).rejects.toThrow(RangeError);
+    await expect(client.listAdminUsers({ limit: 2.5 })).rejects.toThrow(RangeError);
+    await expect(client.listAdminUsers({ cursor: '' })).rejects.toThrow(TypeError);
+    await expect(client.listAdminUsers({ cursor: 'x'.repeat(513) })).rejects.toThrow(TypeError);
+    expect(api.requests).toHaveLength(0);
+  });
+
+  it('encodes the path segment for getAdminUser and maps the locked 404 problem', async () => {
+    let status = 200;
+    const api = await startApi(() => ({
+      status,
+      body:
+        status === 200
+          ? adminUserDetailBody
+          : JSON.stringify({
+              type: '/problems/not-found',
+              title: 'Not found',
+              status: 404,
+              code: 'NOT_FOUND',
+              trace_id: 'trace-admin',
+            }),
+    }));
+    cleanup = api.server;
+    const client = makeClient(api.baseUrl);
+    const detail = await client.getAdminUser('usr 1');
+    expect(detail.credit_balance).toBe(0);
+    expect(api.requests[0]?.url).toBe('/v1/admin/users/usr%201');
+    status = 404;
+    await expect(client.getAdminUser('usr 1')).rejects.toMatchObject({
+      problem: { code: 'NOT_FOUND' },
+      httpStatus: 404,
+    });
+  });
+
+  it('builds the per-user credit ledger and entitlement record paths with pagination', async () => {
+    const api = await startApi(() => ({ status: 200, body: adminEmptyPageBody }));
+    cleanup = api.server;
+    const client = makeClient(api.baseUrl);
+    await client.listAdminCreditLedger('usr_1', { limit: 3 });
+    await client.listAdminEntitlementRecords('usr_1', { cursor: 'cursor-1' });
+    expect(api.requests[0]?.url).toBe('/v1/admin/users/usr_1/credit-ledger?limit=3');
+    expect(api.requests[1]?.url).toBe('/v1/admin/users/usr_1/entitlement-records?cursor=cursor-1');
+  });
+
+  it('forwards the audit user_id filter and rejects empty filters', async () => {
+    const api = await startApi(() => ({ status: 200, body: adminEmptyPageBody }));
+    cleanup = api.server;
+    const client = makeClient(api.baseUrl);
+    await client.listAdminAuditRecords({ user_id: 'usr_1', limit: 2 });
+    expect(api.requests[0]?.url).toBe('/v1/admin/audit?limit=2&user_id=usr_1');
+    await expect(client.listAdminAuditRecords({ user_id: '' })).rejects.toThrow(TypeError);
+    expect(api.requests).toHaveLength(1);
+  });
+
+  it('forwards the outbox state filter and rejects values outside the locked enum', async () => {
+    const api = await startApi(() => ({ status: 200, body: adminEmptyPageBody }));
+    cleanup = api.server;
+    const client = makeClient(api.baseUrl);
+    await client.listAdminOutboxRecords({ state: 'PUBLISHED' });
+    expect(api.requests[0]?.url).toBe('/v1/admin/outbox?state=PUBLISHED');
+    // @ts-expect-error deliberately malformed input from JavaScript callers
+    await expect(client.listAdminOutboxRecords({ state: 'FAILED' })).rejects.toThrow(RangeError);
+    expect(api.requests).toHaveLength(1);
+  });
+
+  it('requires the user token provider; a service token never substitutes for admin reads', async () => {
+    const api = await startApi(() => ({ status: 200, body: adminUserPageBody }));
+    cleanup = api.server;
+    const client = makeClient(api.baseUrl, { user: false });
+    await expect(client.listAdminUsers()).rejects.toThrow(/getUserToken/);
+    await expect(client.getAdminUser('usr_1')).rejects.toThrow(/getUserToken/);
+    await expect(client.listAdminCreditLedger('usr_1')).rejects.toThrow(/getUserToken/);
+    await expect(client.listAdminEntitlementRecords('usr_1')).rejects.toThrow(/getUserToken/);
+    await expect(client.listAdminAuditRecords()).rejects.toThrow(/getUserToken/);
+    await expect(client.listAdminOutboxRecords()).rejects.toThrow(/getUserToken/);
+    expect(api.requests).toHaveLength(0);
+  });
+
+  it('maps 403 role/scope problems to typed McPlanProblemError', async () => {
+    const api = await startApi(() => ({
+      status: 403,
+      body: JSON.stringify({
+        type: '/problems/role-required',
+        title: 'Role required',
+        status: 403,
+        code: 'ROLE_REQUIRED',
+        trace_id: 'trace-role',
+      }),
+    }));
+    cleanup = api.server;
+    const client = makeClient(api.baseUrl);
+    await expect(client.listAdminUsers()).rejects.toMatchObject({
+      problem: { code: 'ROLE_REQUIRED' },
+      httpStatus: 403,
+    });
+  });
+
+  it('retries retryable server errors on the idempotent admin reads', async () => {
+    let calls = 0;
+    const api = await startApi(() => {
+      calls += 1;
+      return { status: calls < 3 ? 503 : 200, body: calls < 3 ? '' : adminUserPageBody };
+    });
+    cleanup = api.server;
+    const page = await makeClient(api.baseUrl).listAdminUsers();
+    expect(page.items).toHaveLength(1);
+    expect(api.requests).toHaveLength(3);
+  });
+});

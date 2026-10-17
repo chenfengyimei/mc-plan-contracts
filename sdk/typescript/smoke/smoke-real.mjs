@@ -1,12 +1,20 @@
 #!/usr/bin/env node
 /**
- * Real-HTTP smoke for @mc-plan/core-sdk, run in two phases against the fixed
- * MCP-F1-CORE-010 producer image (mc-plan-core:mcp-f2-core-001-fb1bc07) on
- * one isolated PostgreSQL 17.
+ * Real-HTTP smoke for @mc-plan/core-sdk, run against the fixed
+ * MCP-F4-CORE-001 producer image (mc-plan-core:mcp-f4-core-001-29939a0; the
+ * producer anchor commit 06de705 differs only in apps/admin web files, see
+ * the IMAGE constant note) on one isolated PostgreSQL 17.
  *
- * Phase 1 (regression): the established sixteen-operation scenarios against a
- * Core container configured for a tiny local JWKS test issuer. Those tokens
- * are honestly attributed as local-JWKS-signed; they are NOT Keycloak tokens.
+ * Phase 1 (regression + admin): the established sixteen-operation scenarios
+ * against a Core container configured for a tiny local JWKS test issuer
+ * (tokens honestly attributed as local-JWKS-signed; they are NOT Keycloak
+ * tokens), followed by the six ADR-0018 admin read-only operations exposed
+ * by this slice on the MCP-F4-CORE-001 producer evidence. The administrator
+ * identity is a local-JWKS token; its ADMIN business role and the credit
+ * ledger fixture row are [SYNTHETIC-DB-SEED] SQL writes into this isolated
+ * test database, mirroring the labeled Ops acceptance fixtures. Everything
+ * else the admin reads observe is real producer data created by the earlier
+ * scenarios.
  *
  * Phase 2 (deactivation, the behavioral smoke MCP-F1-CORE-010 explicitly left
  * to this SDK slice): a real Keycloak 26.8.0 container imports the realm
@@ -60,7 +68,13 @@ function resolveDocker() {
 }
 
 const docker = resolveDocker();
-const IMAGE = 'mc-plan-core:mcp-f2-core-001-fb1bc07';
+// Fixed MCP-F4-CORE-001 producer image. The producer anchor commit (Core
+// 06de705) differs from the image source commit (29939a0) ONLY in apps/admin
+// web files (git diff 29939a0..06de705: callback/logout routes, playwright
+// config, test rename, docs), so the Core API runtime surface this SDK
+// exercises is identical; this is the same image/commit pairing the
+// MCP-F4-CORE-001 closure record itself declares.
+const IMAGE = process.env.SMOKE_CORE_IMAGE ?? 'mc-plan-core:mcp-f4-core-001-29939a0';
 const PG_IMAGE = process.env.SMOKE_PG_IMAGE ?? 'postgres:17-alpine';
 const KC_IMAGE = process.env.SMOKE_KC_IMAGE ?? 'quay.io/keycloak/keycloak:26.8.0';
 const RUN = `mcp-c006-sdk-${process.pid}`;
@@ -132,6 +146,20 @@ function assert(condition, message) {
 function assertEqual(actual, expected, label) {
   if (actual !== expected) {
     throw new Error(`SMOKE ASSERTION FAILED: ${label}: expected ${expected}, got ${actual}`);
+  }
+}
+
+/**
+ * Field-closed payload check: every present key must be one of the locked
+ * schema keys and every required key must be present.
+ */
+function assertClosedObject(item, requiredKeys, optionalKeys, label) {
+  const allowed = new Set([...requiredKeys, ...optionalKeys]);
+  for (const key of Object.keys(item)) {
+    assert(allowed.has(key), `${label}: unexpected key ${key}`);
+  }
+  for (const key of requiredKeys) {
+    assert(key in item, `${label}: missing required key ${key}`);
   }
 }
 
@@ -832,6 +860,272 @@ async function main() {
     404,
     'NOT_FOUND',
     'malformed public user id',
+  );
+
+  // -----------------------------------------------------------------------
+  // 7.5 Admin read-only surface (ADR-0018, MCP-F4-CORE-001 producer
+  // evidence — the operations this SDK slice exposes). Honest attribution:
+  // the administrator identity is a local-JWKS token (NOT Keycloak); the
+  // ADMIN business role and the credit ledger fixture row are
+  // [SYNTHETIC-DB-SEED] SQL writes into this isolated test database,
+  // mirroring the labeled Ops acceptance fixtures. Everything else the
+  // admin reads observe is real producer data from the scenarios above.
+  // -----------------------------------------------------------------------
+
+  // 7.5.1 Provision the administrator identity through the real
+  // authenticated face, then promote its business role with a labeled SQL
+  // fixture.
+  const adminToken = await sign({
+    sub: 'sdk-smoke-admin-001',
+    scope: 'admin:read profile:read',
+    email_verified: true,
+  });
+  const adminClient = createMcPlanCoreClient({
+    baseUrl,
+    getUserToken: async () => adminToken,
+  });
+  const adminMe = await adminClient.getCurrentUser();
+  assertEqual(adminMe.user_id.length > 0, true, 'admin identity provisions a business account');
+  psql(
+    `update mc_plan_users set role = 'ADMIN', updated_at = now() where id = '${adminMe.user_id}'::uuid`,
+  );
+
+  // 7.5.2 listAdminUsers: field-closed summaries and real cursor pagination.
+  const adminUsersPage = await adminClient.listAdminUsers({ limit: 1 });
+  assertEqual(adminUsersPage.items.length, 1, 'admin users first page has one item');
+  assertClosedObject(
+    adminUsersPage.items[0],
+    ['user_id', 'display_name', 'status', 'role', 'created_at'],
+    [],
+    'admin user summary',
+  );
+  const seenUserIds = new Set();
+  let adminCursorPage = adminUsersPage;
+  for (let hop = 0; hop < 20; hop += 1) {
+    for (const item of adminCursorPage.items) {
+      seenUserIds.add(item.user_id);
+    }
+    if (adminCursorPage.next_cursor === null) {
+      break;
+    }
+    adminCursorPage = await adminClient.listAdminUsers({
+      limit: 1,
+      cursor: adminCursorPage.next_cursor,
+    });
+  }
+  assertEqual(adminCursorPage.next_cursor, null, 'admin users pagination reaches a null cursor');
+  assert(seenUserIds.has(me.user_id), 'admin users pages cover the smoke user');
+  assert(seenUserIds.has(adminMe.user_id), 'admin users pages cover the administrator');
+
+  // 7.5.3 getAdminUser: full administrative detail, field-closed, no
+  // email/subject leakage, zero balance before the ledger fixture.
+  const adminDetail = await adminClient.getAdminUser(me.user_id);
+  assertClosedObject(
+    adminDetail,
+    [
+      'user_id',
+      'display_name',
+      'status',
+      'role',
+      'created_at',
+      'updated_at',
+      'credit_balance',
+      'identity_links_count',
+      'developer_apps_count',
+      'personal_access_tokens_count',
+    ],
+    [],
+    'admin user detail',
+  );
+  assertEqual(adminDetail.status, 'ACTIVE', 'admin detail status');
+  assertEqual(adminDetail.role, 'USER', 'admin detail role before the fixture promotion');
+  assertEqual(adminDetail.credit_balance, 0, 'admin detail balance zero before the fixture');
+  assertEqual(adminDetail.identity_links_count, 1, 'admin detail identity link count');
+  assertEqual(adminDetail.developer_apps_count, 0, 'admin detail developer app count');
+  assertEqual(adminDetail.personal_access_tokens_count, 0, 'admin detail PAT count');
+  await expectProblem(
+    adminClient.getAdminUser('00000000-0000-4000-8000-000000000000'),
+    404,
+    'NOT_FOUND',
+    'admin detail unknown user',
+  );
+
+  // 7.5.4 [SYNTHETIC-DB-SEED] credit account + chain-consistent grant fixture;
+  // the admin ledger read then surfaces the locked AdminCreditLedgerEntry
+  // shape exactly as recorded.
+  psql(
+    `insert into credit_accounts (id, user_id, balance, created_at, updated_at) values (gen_random_uuid(), '${me.user_id}'::uuid, 5, now(), now())`,
+  );
+  psql(
+    `insert into credit_ledger_entries (id, entry_id, user_id, kind, amount, balance_before, balance_after, source, reason, actor_id, reference_id, caller_id, operation, idempotency_key, created_at) values (gen_random_uuid(), 'smoke-admin-ledger-001', '${me.user_id}'::uuid, 'grant', 5, 0, 5, 'internal.test', 'smoke admin ledger fixture reason', 'smoke-fixture-actor', null, 'smoke-fixture-caller', 'smoke-fixture-operation', 'smoke-fixture-idem-001', now())`,
+  );
+  const adminLedger = await adminClient.listAdminCreditLedger(me.user_id, { limit: 10 });
+  assertEqual(adminLedger.items.length, 1, 'admin ledger has the fixture entry');
+  const ledgerEntry = adminLedger.items[0];
+  assertClosedObject(
+    ledgerEntry,
+    [
+      'entry_id',
+      'user_id',
+      'kind',
+      'amount',
+      'balance_before',
+      'balance_after',
+      'source',
+      'reason',
+      'actor_id',
+      'created_at',
+    ],
+    ['reference_id'],
+    'admin ledger entry',
+  );
+  assertEqual(ledgerEntry.kind, 'grant', 'admin ledger kind');
+  assertEqual(ledgerEntry.amount, 5, 'admin ledger amount');
+  assertEqual(ledgerEntry.balance_before, 0, 'admin ledger balance chain before');
+  assertEqual(ledgerEntry.balance_after, 5, 'admin ledger balance chain after');
+  assertEqual(ledgerEntry.reason, 'smoke admin ledger fixture reason', 'admin ledger reason');
+  const afterSeed = await adminClient.getAdminUser(me.user_id);
+  assertEqual(afterSeed.credit_balance, 5, 'admin detail balance follows the fixture account');
+  await expectProblem(
+    adminClient.listAdminCreditLedger('00000000-0000-4000-8000-000000000000'),
+    404,
+    'NOT_FOUND',
+    'admin ledger unknown user',
+  );
+
+  // 7.5.5 The daily entitlement record materialized by the real 5.4 consume.
+  const adminEntitlements = await adminClient.listAdminEntitlementRecords(me.user_id);
+  assertEqual(adminEntitlements.items.length, 1, 'one materialized entitlement record');
+  const entitlementRecord = adminEntitlements.items[0];
+  assertClosedObject(
+    entitlementRecord,
+    ['entitlement_id', 'module', 'operation', 'policy_date', 'granted', 'consumed', 'created_at'],
+    [],
+    'admin entitlement record',
+  );
+  assertEqual(entitlementRecord.module, 'skin', 'admin entitlement module');
+  assertEqual(entitlementRecord.operation, 'creation_session', 'admin entitlement operation');
+  assertEqual(entitlementRecord.granted, 3, 'admin entitlement granted');
+  assertEqual(entitlementRecord.consumed, 1, 'admin entitlement consumed');
+
+  // 7.5.6 The immutable audit trail: real records plus the user filter.
+  const adminAudit = await adminClient.listAdminAuditRecords({ limit: 50 });
+  assert(adminAudit.items.length >= 1, 'admin audit trail has real records');
+  assertClosedObject(
+    adminAudit.items[0],
+    ['audit_id', 'user_id', 'action', 'target_id', 'metadata', 'created_at'],
+    [],
+    'admin audit record',
+  );
+  const filteredAudit = await adminClient.listAdminAuditRecords({
+    user_id: me.user_id,
+    limit: 50,
+  });
+  assert(filteredAudit.items.length >= 1, 'filtered audit trail has the smoke user records');
+  for (const item of filteredAudit.items) {
+    assertEqual(item.user_id, me.user_id, 'filtered audit record belongs to the smoke user');
+  }
+
+  // 7.5.7 Internal outbox delivery state: real published records, state
+  // filter, delivery positions.
+  const adminOutboxAll = await adminClient.listAdminOutboxRecords({ limit: 100 });
+  assert(adminOutboxAll.items.length >= 2, 'admin outbox has real records');
+  assertClosedObject(
+    adminOutboxAll.items[0],
+    ['record_id', 'user_id', 'event_type', 'state', 'attempt_count', 'created_at'],
+    ['delivery_position', 'last_error', 'published_at'],
+    'admin outbox record',
+  );
+  const publishedOnly = await adminClient.listAdminOutboxRecords({
+    state: 'PUBLISHED',
+    limit: 100,
+  });
+  assert(publishedOnly.items.length >= 2, 'published filter keeps the published records');
+  for (const item of publishedOnly.items) {
+    assertEqual(item.state, 'PUBLISHED', 'published filter only returns PUBLISHED rows');
+    assert(
+      item.delivery_position !== null && item.delivery_position !== undefined,
+      'published outbox rows expose their delivery positions',
+    );
+  }
+
+  // 7.5.8 Negatives: scope, role, unauthenticated, service token, raw limit
+  // and forged cursor boundaries the SDK deliberately does not invent
+  // values for.
+  await expectProblem(
+    userClient.listAdminUsers(),
+    403,
+    'INSUFFICIENT_SCOPE',
+    'user token without admin:read',
+  );
+  const nonAdminToken = await sign({
+    sub: 'sdk-smoke-user-004',
+    scope: 'admin:read profile:read',
+    email_verified: true,
+  });
+  const nonAdminClient = createMcPlanCoreClient({
+    baseUrl,
+    getUserToken: async () => nonAdminToken,
+  });
+  await nonAdminClient.getCurrentUser();
+  await expectProblem(
+    nonAdminClient.listAdminUsers(),
+    403,
+    'ROLE_REQUIRED',
+    'admin:read token without the ADMIN role',
+  );
+  const bareAdmin = await fetch(`${baseUrl}/v1/admin/users`);
+  assertEqual(bareAdmin.status, 401, 'no-credential admin read rejected with 401');
+  assertEqual(
+    (await bareAdmin.json()).code,
+    'AUTHENTICATION_REQUIRED',
+    'no-credential admin problem code',
+  );
+  // The producer boundary is probed with a raw request because the SDK
+  // client-side boundary (admin methods require the user token provider)
+  // already rejects a service-token-only client before sending anything. The
+  // locked admin face declares userOAuth credentials only, so the service
+  // token is rejected at the authentication layer (401), not the scope
+  // layer.
+  const serviceAdminProbe = await fetch(`${baseUrl}/v1/admin/users`, {
+    headers: { authorization: `Bearer ${consumerAToken}` },
+  });
+  assertEqual(serviceAdminProbe.status, 401, 'service token rejected on the admin face');
+  assertEqual(
+    (await serviceAdminProbe.json()).code,
+    'AUTHENTICATION_REQUIRED',
+    'service token admin problem code',
+  );
+  const rawLimit = await fetch(`${baseUrl}/v1/admin/users?limit=101`, {
+    headers: { authorization: `Bearer ${adminToken}` },
+  });
+  assertEqual(rawLimit.status, 400, 'raw limit=101 rejected');
+  assertEqual((await rawLimit.json()).code, 'VALIDATION_FAILED', 'raw limit problem code');
+  const rawCursor = await fetch(`${baseUrl}/v1/admin/users?cursor=not-a-cursor`, {
+    headers: { authorization: `Bearer ${adminToken}` },
+  });
+  assertEqual(rawCursor.status, 400, 'forged cursor rejected');
+  assertEqual((await rawCursor.json()).code, 'VALIDATION_FAILED', 'forged cursor problem code');
+
+  // 7.5.9 The PAT catalog never grants admin:read: DEVELOPMENT_ROLES
+  // includes ADMIN, so the same administrator identity — with a token that
+  // also carries pat:manage — reaches the locked PAT scope catalog through
+  // the real SDK surface and the request is rejected with 400
+  // VALIDATION_FAILED (UNKNOWN_SCOPE field error) before any ceiling check.
+  const adminPatToken = await sign({
+    sub: 'sdk-smoke-admin-001',
+    scope: 'admin:read profile:read pat:manage',
+    email_verified: true,
+  });
+  const adminPatClient = createMcPlanCoreClient({
+    baseUrl,
+    getUserToken: async () => adminPatToken,
+  });
+  await expectProblem(
+    adminPatClient.createPersonalAccessToken({ scopes: ['admin:read'] }),
+    400,
+    'VALIDATION_FAILED',
+    'PAT catalog never grants admin:read',
   );
 
   // -----------------------------------------------------------------------

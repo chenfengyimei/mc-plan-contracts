@@ -5,14 +5,13 @@
  * `openapi/core.yaml` at 0.1.0-alpha.9 AND whose producer has passed
  * contract, HTTP E2E and real-PostgreSQL integration acceptance. The first
  * twelve operations were producer-verified by MCP-F1-CORE-005, the two
- * consumer-pull event operations by MCP-F1-CORE-008, and the alpha.6 public
- * profile operations (getPublicUser, updateCurrentUser) by MCP-F1-CORE-009.
- * The alpha.7 deactivation operation (deactivateCurrentUser) is verified by
- * MCP-F1-CORE-010, whose final tree (see SUPPORTED_PRODUCER_COMMIT) carries
- * the deactivation producer and re-ran the full gate suite for all
- * seventeen operations. The alpha.9 admin console operations (ADR-0018,
- * MCP-F4-CORE-001) are deliberately NOT exposed until their producer
- * evidence exists; they must not be pre-invented here.
+ * consumer-pull event operations by MCP-F1-CORE-008, the alpha.6 public
+ * profile operations (getPublicUser, updateCurrentUser) by MCP-F1-CORE-009
+ * and the alpha.7 deactivation operation (deactivateCurrentUser) by
+ * MCP-F1-CORE-010. The six alpha.9 admin console read-only operations
+ * (ADR-0018) are producer-verified by MCP-F4-CORE-001, whose final tree (see
+ * SUPPORTED_PRODUCER_COMMIT) carried the admin query producer, the apps/admin
+ * web app and the Ops real-stack administrator acceptance.
  */
 
 /** Contract prerelease version the generated types and transport are built from. */
@@ -23,16 +22,19 @@ export const SUPPORTED_CONTRACT_LOCK_COMMIT = '8f917bda76eaccd705a73fd35fe9a23a3
 
 /**
  * Producer commit of mc-plan-core verified against the supported operations:
- * the MCP-F1-CORE-010 final tree, which implements the alpha.7 deactivation
- * surface and re-ran the full producer gate suite.
+ * the MCP-F4-CORE-001 final tree, which implements the alpha.9 admin console
+ * read-only face on top of the full alpha.7 business surface and re-ran the
+ * producer gate suite plus the Ops real-stack administrator acceptance.
  */
-export const SUPPORTED_PRODUCER_COMMIT = 'fb1bc07ac7e18deb6c13d290f34a8818bd96b832' as const;
+export const SUPPORTED_PRODUCER_COMMIT = '06de705698f126a8eb462b828c7aaad16e992cbf' as const;
 
 /**
  * sha256 of every contract file consumed by the type generation, relative to
  * the mc-plan-contracts repository root. Mirrors the 0.1.0-alpha.9 lock
- * manifest; tests recompute these at run time so any contract edit that is
- * not regenerated fails `generate:check` and `test`.
+ * manifest (the eleven admin field-closed schemas are generation inputs for
+ * the exposed admin operations and are pinned here); tests recompute these
+ * at run time so any contract edit that is not regenerated fails
+ * `generate:check` and `test`.
  */
 export const SUPPORTED_CONTRACT_FILES = {
   'openapi/core.yaml': 'fa19cd367b30823f70237b0dbc5c084bbe28c255ac82a4c8a0d2d000fe7f10bd',
@@ -56,11 +58,33 @@ export const SUPPORTED_CONTRACT_FILES = {
     'a00791a0c802b5937a537d8a6f016bbe74c6118fe28c71a8e56957a858d5b3d9',
   'schemas/core/personal-access-token-created.json':
     'd8195b025c2db0f2c09fd6105f67957c1e7a19bfb28de5cd13acfe8becdd8259',
+  'schemas/core/admin-user-page.json':
+    'ac69f90bcce41a2d55bc5d51ea22de96933b3e8d9f9bf4b079641f3aca029282',
+  'schemas/core/admin-user-summary.json':
+    'f34a438bdb39d730e328d02b250b75e2b766b2decc6506c29a1d3b9be22c1d3d',
+  'schemas/core/admin-user.json':
+    '70ce88bbb8412a8013b529023fbea30392be5acefded691478bec1d5d60573a0',
+  'schemas/core/admin-credit-ledger-page.json':
+    'ce31f080930fe57435fb2eaebc57049e0e9f3c236f571efac811439a54e26b6a',
+  'schemas/core/admin-credit-ledger-entry.json':
+    'ec8671f79aa90a0f95d411d2cdc562e8d50f5acc0adbb99b392846138a19bec2',
+  'schemas/core/admin-entitlement-record-page.json':
+    '48ba2fcd9418462a4e8ef6613aa7880f732bdf86acca28ef498338e18e444520',
+  'schemas/core/admin-entitlement-record.json':
+    '544a4e8ec280c48b6d5a422833c8332cde66a1f982e6667c548e2d44fa5c4660',
+  'schemas/core/admin-audit-record-page.json':
+    '833169cbc6487027d9f1473e1b5085e84a2b83e52c05a3b6016585cdce2ce46c',
+  'schemas/core/admin-audit-record.json':
+    'a7a62e3166bd70ac06a0edf3a0204282b82a3f68347a22fcbc766ede5a49fd54',
+  'schemas/core/admin-outbox-record-page.json':
+    'c30de8027311fe5ec46cdc89d4ebe37323610866e2b85f4b476fed34c77d8673',
+  'schemas/core/admin-outbox-record.json':
+    'f76475bcd975a08e6e0b4bad5636cde824bdbd0bfb3a99f9288fa45d0c60f16e',
 } as const;
 
 export type SupportedContractFile = keyof typeof SUPPORTED_CONTRACT_FILES;
 
-/** The only operationIds this SDK exposes. getPublicUser and updateCurrentUser are both exposed since MCP-F1-CORE-009; deactivateCurrentUser is exposed since MCP-F1-CORE-010 producer evidence. */
+/** The only operationIds this SDK exposes. getPublicUser and updateCurrentUser are exposed since MCP-F1-CORE-009; deactivateCurrentUser since MCP-F1-CORE-010 producer evidence; the six ADR-0018 admin read-only operations since MCP-F4-CORE-001 producer evidence. */
 export const SUPPORTED_OPERATIONS = [
   'getCurrentUser',
   'createDeveloperApp',
@@ -79,6 +103,12 @@ export const SUPPORTED_OPERATIONS = [
   'getPublicUser',
   'updateCurrentUser',
   'deactivateCurrentUser',
+  'listAdminUsers',
+  'getAdminUser',
+  'listAdminCreditLedger',
+  'listAdminEntitlementRecords',
+  'listAdminAuditRecords',
+  'listAdminOutboxRecords',
 ] as const;
 
 export type SupportedOperation = (typeof SUPPORTED_OPERATIONS)[number];

@@ -35,6 +35,12 @@ export {
 export {
   McPlanCoreClient,
   createMcPlanCoreClient,
+  type AdminAuditRecordPage,
+  type AdminCreditLedgerPage,
+  type AdminEntitlementRecordPage,
+  type AdminOutboxRecordPage,
+  type AdminUser,
+  type AdminUserPage,
   type ApproveDeveloperAppScopesRequest,
   type ConsumeCreditsRequest,
   type ConsumptionCall,

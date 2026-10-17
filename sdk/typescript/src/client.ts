@@ -38,6 +38,18 @@ export type EventAcknowledgmentRequest =
   operations['acknowledgeEvents']['requestBody']['content']['application/json'];
 export type UpdateCurrentUserRequest =
   operations['updateCurrentUser']['requestBody']['content']['application/json'];
+export type AdminUserPage =
+  operations['listAdminUsers']['responses']['200']['content']['application/json'];
+export type AdminUser =
+  operations['getAdminUser']['responses']['200']['content']['application/json'];
+export type AdminCreditLedgerPage =
+  operations['listAdminCreditLedger']['responses']['200']['content']['application/json'];
+export type AdminEntitlementRecordPage =
+  operations['listAdminEntitlementRecords']['responses']['200']['content']['application/json'];
+export type AdminAuditRecordPage =
+  operations['listAdminAuditRecords']['responses']['200']['content']['application/json'];
+export type AdminOutboxRecordPage =
+  operations['listAdminOutboxRecords']['responses']['200']['content']['application/json'];
 
 /** Result envelope for consumeCredits: 201 means a fresh consumption, 200 an idempotent replay. */
 export interface ConsumptionCall {
@@ -86,7 +98,7 @@ function encodePathSegment(value: string): string {
 }
 
 /**
- * Producer-verified client for the seventeen supported Core 0.1.0-alpha.7
+ * Producer-verified client for the twenty-three supported Core 0.1.0-alpha.9
  * operations. Every method maps 1:1 to a locked operationId; see
  * SUPPORTED_OPERATIONS.
  */
@@ -356,7 +368,143 @@ export class McPlanCoreClient {
     });
   }
 
+  // -- Admin read-only queries (ADR-0018 admin:read, user token only) --------
+
+  /**
+   * List MC Plan business users newest first with opaque cursor pagination
+   * (ADR-0018 read-only admin surface). Requires a realm-designated
+   * administrator OIDC user token carrying admin:read plus the ADMIN business
+   * role on an ACTIVE account; personal access tokens can never obtain
+   * admin:read. The field-closed page never includes identity emails, OIDC
+   * subjects or issuer claims.
+   */
+  public async listAdminUsers(
+    options: { limit?: number; cursor?: string; signal?: AbortSignal } = {},
+  ): Promise<AdminUserPage> {
+    return this.getJson(this.adminPagePath('/v1/admin/users', options), 'user', options.signal);
+  }
+
+  /**
+   * Return one MC Plan business user's administrative view: public display
+   * name, business status and role, timestamps, non-negative credit balance
+   * and linked identity / developer app / personal access token counts.
+   * Unknown or malformed identifiers answer the locked 404 without
+   * disclosing existence.
+   */
+  public async getAdminUser(userId: string, signal?: AbortSignal): Promise<AdminUser> {
+    return this.getJson(`/v1/admin/users/${encodePathSegment(userId)}`, 'user', signal);
+  }
+
+  /**
+   * List one user's immutable credit ledger entries newest first, including
+   * the recorded reason and actor id (manual-adjustment audit extension).
+   * Strictly read-only: the call never creates accounts, ledger entries,
+   * audit records or outbox records.
+   */
+  public async listAdminCreditLedger(
+    userId: string,
+    options: { limit?: number; cursor?: string; signal?: AbortSignal } = {},
+  ): Promise<AdminCreditLedgerPage> {
+    return this.getJson(
+      this.adminPagePath(`/v1/admin/users/${encodePathSegment(userId)}/credit-ledger`, options),
+      'user',
+      options.signal,
+    );
+  }
+
+  /**
+   * List one user's materialized daily entitlement records newest first
+   * (policy module, operation, policy date, granted/consumed units).
+   * Strictly read-only: entitlements materialize only on real consumption.
+   */
+  public async listAdminEntitlementRecords(
+    userId: string,
+    options: { limit?: number; cursor?: string; signal?: AbortSignal } = {},
+  ): Promise<AdminEntitlementRecordPage> {
+    return this.getJson(
+      this.adminPagePath(
+        `/v1/admin/users/${encodePathSegment(userId)}/entitlement-records`,
+        options,
+      ),
+      'user',
+      options.signal,
+    );
+  }
+
+  /**
+   * List the immutable audit trail newest first with opaque cursor pagination
+   * and an optional MC Plan user id filter. The metadata object is
+   * action-specific and surfaced exactly as recorded. Strictly read-only.
+   */
+  public async listAdminAuditRecords(
+    options: { limit?: number; cursor?: string; user_id?: string; signal?: AbortSignal } = {},
+  ): Promise<AdminAuditRecordPage> {
+    const path = this.adminPagePath('/v1/admin/audit', options);
+    if (options.user_id === undefined) {
+      return this.getJson(path, 'user', options.signal);
+    }
+    if (typeof options.user_id !== 'string' || options.user_id.length === 0) {
+      throw new TypeError('user_id filter must be a non-empty MC Plan user id string');
+    }
+    const url = new URL(`${this.baseUrl}${path}`);
+    url.searchParams.set('user_id', options.user_id);
+    return this.getJson(`${url.pathname}${url.search}`, 'user', options.signal);
+  }
+
+  /**
+   * List internal outbox delivery records newest first with opaque cursor
+   * pagination and an optional delivery state filter, exposing event type,
+   * delivery state, attempt count, delivery position and the bounded last
+   * error exactly as recorded. Strictly read-only: never mutates delivery
+   * state or consumer progress.
+   */
+  public async listAdminOutboxRecords(
+    options: {
+      limit?: number;
+      cursor?: string;
+      state?: 'PENDING' | 'PUBLISHED';
+      signal?: AbortSignal;
+    } = {},
+  ): Promise<AdminOutboxRecordPage> {
+    const path = this.adminPagePath('/v1/admin/outbox', options);
+    if (options.state === undefined) {
+      return this.getJson(path, 'user', options.signal);
+    }
+    if (options.state !== 'PENDING' && options.state !== 'PUBLISHED') {
+      throw new RangeError("state must be 'PENDING' or 'PUBLISHED' (locked contract enum)");
+    }
+    const url = new URL(`${this.baseUrl}${path}`);
+    url.searchParams.set('state', options.state);
+    return this.getJson(`${url.pathname}${url.search}`, 'user', options.signal);
+  }
+
   // -- internals ---------------------------------------------------------------
+
+  /**
+   * Shared page-query builder for the admin read-only surfaces: limit is the
+   * locked 1..100 integer, cursor is the opaque next_cursor passthrough
+   * (1..512 characters). The SDK never invents cursors.
+   */
+  private adminPagePath(path: string, options: { limit?: number; cursor?: string }): string {
+    const url = new URL(`${this.baseUrl}${path}`);
+    if (options.limit !== undefined) {
+      if (!Number.isInteger(options.limit) || options.limit < 1 || options.limit > 100) {
+        throw new RangeError('limit must be an integer between 1 and 100 (locked contract range)');
+      }
+      url.searchParams.set('limit', String(options.limit));
+    }
+    if (options.cursor !== undefined) {
+      if (
+        typeof options.cursor !== 'string' ||
+        options.cursor.length === 0 ||
+        options.cursor.length > 512
+      ) {
+        throw new TypeError('cursor must be the opaque next_cursor string of 1..512 characters');
+      }
+      url.searchParams.set('cursor', options.cursor);
+    }
+    return `${url.pathname}${url.search}`;
+  }
 
   private async getJson<T>(
     path: string,

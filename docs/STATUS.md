@@ -1,6 +1,6 @@
 # 状态
 
-阶段：Core 契约 0.1.0-alpha.9 已锁定（alpha.8 官方 Community OAuth 委托生产者已验收 `MCP-F2-CORE-001`；alpha.9 管理员只读查询面按 ADR-0018 锁定，producer 属 `MCP-F4-CORE-001` 实施中）；Core TypeScript SDK 已覆盖 17 个 producer 已验证操作，Community TypeScript SDK 已覆盖 12 个 producer 已验证操作
+阶段：Core 契约 0.1.0-alpha.9 已锁定（alpha.8 官方 Community OAuth 委托生产者已验收 `MCP-F2-CORE-001`；alpha.9 管理员只读查询面按 ADR-0018 锁定，producer 已由 `MCP-F4-CORE-001` 验收关闭）；Core TypeScript SDK 已覆盖 23 个 producer 已验证操作，Community TypeScript SDK 已覆盖 12 个 producer 已验证操作
 
 版本：Core `0.1.0-alpha.9`（ADR-0018 管理员只读查询面：admin:read 六操作，realm 指定管理员 + ADMIN 角色）；Skin `0.1.0-alpha.1`（ADR-0012 匿名窗口）；Community `0.1.0-alpha.4`（ADR-0016 人工审核 + ADR-0014 资源闭环，producer/SDK 已验收）
 
@@ -43,3 +43,5 @@ MCP-F2-COMMUNITY-002 producer/SDK 实测：Community alpha.4 已由 c1cdab0 实�
 MCP-F2-COMMUNITY-003：Community源码来源锁alpha.8与最终两镜像消费组合完成，SDKproducer锚d482331并对新固定Core/Community镜像真实HTTP通过；12操作/alpha.4表面不变。
 
 2026-10-13 MCP-F4-CORE-001 契约侧：Core `0.1.0-alpha.9` 按 Foundation ADR-0018（所有者管理员后台派工+四项实答）锁定管理员只读查询面——新增 userOAuth scope `admin:read` 与六个只读操作（listAdminUsers/getAdminUser/listAdminCreditLedger/listAdminEntitlementRecords/listAdminAuditRecords/listAdminOutboxRecords），游标分页 limit 1..100 默认 20、字段封闭不含邮箱/subject/令牌机密；PAT 目录/App 委托目录/serviceOAuth 均不含 admin:read（机器校验锁定）。SDK 类型基线随 alpha.9 重生成、支持操作保持 17（六管理操作无 producer 证据不暴露，测试断言缺席）。生产者/Ops realm/apps/admin 管理台属 `MCP-F4-CORE-001` 本切片实施；管理写操作与 Community 队列/双人复核/申诉仍按 Q-010 与逐项所有者决策后置。
+
+2026-10-16 MCP-F4-CONTRACTS-001：SDK 侧以 `MCP-F4-CORE-001`（Core `06de705`）的 producer 证据把 ADR-0018 六个管理只读操作暴露进 `@mc-plan/core-sdk`（支持操作 17→23；`SUPPORTED_PRODUCER_COMMIT` 锚定 `06de705`；`SUPPORTED_CONTRACT_FILES` 补齐 11 个 admin 字段封闭 Schema，清单 12→23 项），公共契约文件零变化（generate:check 零漂移）。六方法均为 userOAuth `admin:read` 凭证面、GET 幂等可重试、游标只透传，limit 1..100/state 枚举/游标长度客户端先验；47 项单元（37 原有 + 10 管理面）、build、pack:check 干净工程严格 tsc 消费全部通过；对固定镜像 `mc-plan-core:mcp-f4-core-001-29939a0`（即 F4-CORE-001 记录声明的镜像；producer 锚 `06de705` 与镜像源 `29939a0` 的差异经 git diff 证实仅 apps/admin web 文件，Core API 表面一致）+ 隔离 PostgreSQL 17 + 本地 JWKS + 隔离真实 Keycloak 26.8.0 的真实 HTTP smoke 两轮通过：既有 16 操作与注销链回归不变；管理面含 [SYNTHETIC-DB-SEED] 标注的 ADMIN 角色提升与链一致 grant 账本夹具行（其余为真实 producer 数据）——用户目录游标分页至 null cursor、详情十字段封闭无邮箱/subject 泄露、账本条目形状与余额链、真实消费物化的权益记录（granted 3/consumed 1）、真实审计与 user_id 过滤收敛、outbox 字段封闭与 PUBLISHED 过滤/投递位次；负例：缺 scope 403 `INSUFFICIENT_SCOPE`、有 scope 无 ADMIN 角色 403 `ROLE_REQUIRED`、裸请求与服务令牌均在认证层 401 `AUTHENTICATION_REQUIRED`（admin 面仅 userOAuth 凭证面）、原始 limit=101/伪造游标 400 `VALIDATION_FAILED`、持 `pat:manage` 的管理员经 SDK 请求 `admin:read` PAT 400（目录隔离 UNKNOWN_SCOPE）。管理写操作仍按 Q-010 与逐项所有者决策后置。

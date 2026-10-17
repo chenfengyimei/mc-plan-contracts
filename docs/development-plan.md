@@ -2,7 +2,7 @@
 
 状态：Active
 
-当前里程碑：F1 Core `0.1.0-alpha.5` 服务事件投递契约（ADR-0011 消费者拉取，`MCP-F1-CONTRACTS-002`）已锁定；`0.1.0-alpha.4` 积分只读余额预发布契约与不可变积分账本生产者（Core `5508d60`，`MCP-F1-CORE-005`）已验证；首个 TypeScript SDK 切片（`@mc-plan/core-sdk`，12 个已验收操作，`MCP-F1-CONTRACTS-001`）已实现并对固定镜像完成真实 HTTP 验收；事件投递面生产者已由 `MCP-F1-CORE-008`（Core `87ddd66`）关闭，`MCP-F1-CONTRACTS-004` 已把事件两操作暴露进 SDK（14 个 producer 已验证操作，producer 锚定 `87ddd66`，pack 干净工程消费与固定镜像真实 HTTP smoke 通过）；Skin/Community 消费者按后续工作流推进；Skin `0.1.0-alpha.1`（ADR-0012 匿名窗口五缺口，`MCP-F1-CONTRACTS-003`）已锁定，Skin 产线生产者在 Q-001 决策后跟进；Community `0.1.0-alpha.2`（ADR-0014）已锁定且 producer 已由 `MCP-F2-COMMUNITY-001` 验收（community `70e55a1` + 固定镜像 `mcp-f2-community-001-779803e`），首个 Community TypeScript SDK（`sdk/community`，`@mc-plan/community-sdk@0.1.0-alpha.2`，10 个 producer 已验证操作，`MCP-F2-CONTRACTS-002`）已交付并完成固定镜像真实 HTTP 验收；管理员只读六操作已由 `MCP-F4-CONTRACTS-001` 以 `MCP-F4-CORE-001` 的 producer 证据暴露进 Core SDK（支持操作 17→23，producer 锚定 Core `06de705`，`SUPPORTED_CONTRACT_FILES` 补齐 11 个 admin Schema 后 23 项，固定镜像真实 HTTP smoke 通过）。
+当前里程碑：F1 Core `0.1.0-alpha.5` 服务事件投递契约（ADR-0011 消费者拉取，`MCP-F1-CONTRACTS-002`）已锁定；`0.1.0-alpha.4` 积分只读余额预发布契约与不可变积分账本生产者（Core `5508d60`，`MCP-F1-CORE-005`）已验证；首个 TypeScript SDK 切片（`@mc-plan/core-sdk`，12 个已验收操作，`MCP-F1-CONTRACTS-001`）已实现并对固定镜像完成真实 HTTP 验收；事件投递面生产者已由 `MCP-F1-CORE-008`（Core `87ddd66`）关闭，`MCP-F1-CONTRACTS-004` 已把事件两操作暴露进 SDK（14 个 producer 已验证操作，producer 锚定 `87ddd66`，pack 干净工程消费与固定镜像真实 HTTP smoke 通过）；Skin/Community 消费者按后续工作流推进；Skin `0.1.0-alpha.1`（ADR-0012 匿名窗口五缺口，`MCP-F1-CONTRACTS-003`）已锁定，Skin 产线生产者在 Q-001 决策后跟进；Community `0.1.0-alpha.2`（ADR-0014）已锁定且 producer 已由 `MCP-F2-COMMUNITY-001` 验收（community `70e55a1` + 固定镜像 `mcp-f2-community-001-779803e`），首个 Community TypeScript SDK（`sdk/community`，`@mc-plan/community-sdk@0.1.0-alpha.2`，10 个 producer 已验证操作，`MCP-F2-CONTRACTS-002`）已交付并完成固定镜像真实 HTTP 验收；管理员只读六操作已由 `MCP-F4-CONTRACTS-001` 以 `MCP-F4-CORE-001` 的 producer 证据暴露进 Core SDK（支持操作 17→23，producer 锚定 Core `06de705`，`SUPPORTED_CONTRACT_FILES` 补齐 11 个 admin Schema 后 23 项，固定镜像真实 HTTP smoke 通过）；首个 Skin SDK（`sdk/skin`，`@mc-plan/skin-sdk@0.1.0-alpha.1`，8 个 producer 已验证操作，`MCP-F1-CONTRACTS-007`）已交付并对生产者树（skin `14a8fe3` + 确定性 Fake Provider + 手工隔离 PostgreSQL/Redis）完成真实 HTTP 验收。
 
 ## 固定顺序
 
@@ -54,6 +54,19 @@ pnpm --dir sdk/community test
 pnpm --dir sdk/community build
 pnpm --dir sdk/community pack:check       # pnpm pack + 干净临时工程消费验证
 pnpm --dir sdk/community smoke:real       # 固定 community 镜像 + 独立 Core 镜像 + 隔离 PostgreSQL/S3 协议服务的真实 HTTP 验收
+```
+
+Skin SDK 工程（`sdk/skin`，`MCP-F1-CONTRACTS-007` 引入后追加，命令与 Core SDK 同构）：
+
+```sh
+pnpm --dir sdk/skin format:check
+pnpm --dir sdk/skin lint
+pnpm --dir sdk/skin typecheck
+pnpm --dir sdk/skin generate:check   # openapi-typescript 重跑，src/generated diff 必须为空
+pnpm --dir sdk/skin test
+pnpm --dir sdk/skin build
+pnpm --dir sdk/skin pack:check       # pnpm pack + 干净临时工程消费验证
+pnpm --dir sdk/skin smoke:real       # 生产者树（skin main）+ 手工隔离 PostgreSQL/Redis 容器 + 确定性 Fake Provider 的真实 HTTP 验收
 ```
 
 引入 SDK 工程后再增加生成差异、类型检查、单元测试和消费者契约测试；命令必须写回本文件与 `AGENTS.md`。

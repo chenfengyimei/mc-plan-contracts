@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.mc-plan.example/core/admin-credit-adjustment-request.v1.json",
+  "title": "AdminCreditAdjustmentRequest",
+  "type": "object",
+  "required": ["kind", "amount", "reason"],
+  "properties": {
+    "kind": {
+      "type": "string",
+      "enum": ["grant", "refund", "adjustment"],
+      "description": "Manual adjustment category recorded to the immutable ledger; grant and refund carry positive amounts, adjustment any non-zero integer."
+    },
+    "amount": {
+      "type": "integer",
+      "not": { "const": 0 },
+      "description": "Non-zero signed amount in credit units."
+    },
+    "reason": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "description": "Mandatory administrator reason recorded exactly as written; empty reasons are rejected."
+    },
+    "reference_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255,
+      "description": "Optional reference to the original consumption entry for refunds."
+    }
+  },
+  "additionalProperties": false
+}

@@ -374,6 +374,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/v1/admin/users/{userId}/credit-adjustments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                userId: components["parameters"]["UserId"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record a manual credit adjustment or refund for one user
+         * @description ADR-0018 follow-up first write batch, owner decision 2026-10-17: manual credit adjustments and refunds only. Requires a realm-designated administrator OIDC user token carrying the new admin:write scope plus the ADMIN business role and an ACTIVE account; personal access tokens, developer-app delegation and service tokens can never obtain admin:write. The command is transactional with the immutable credit ledger and carries a mandatory administrator reason (1..512) recorded exactly as written plus the actor identity in the same transaction; the response is the created AdminCreditLedgerEntry. Kind/symbol consistency is enforced (grant and refund amounts must be positive, adjustment any non-zero integer); a command that would drive the balance negative is rejected 409 CREDIT_ADJUSTMENT_CONFLICT. Strictly bounded to the owner-approved first batch: no other admin write operations exist in this prerelease.
+         */
+        post: operations["createAdminCreditAdjustment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -668,6 +690,20 @@ export interface components {
             items: components["schemas"]["admin-outbox-record"][];
             /** @description Opaque cursor after the last returned record. Null when no older records remain. */
             next_cursor: string | null;
+        };
+        /** AdminCreditAdjustmentRequest */
+        "admin-credit-adjustment-request": {
+            /**
+             * @description Manual adjustment category recorded to the immutable ledger; grant and refund carry positive amounts, adjustment any non-zero integer.
+             * @enum {string}
+             */
+            kind: "grant" | "refund" | "adjustment";
+            /** @description Non-zero signed amount in credit units. */
+            amount: number;
+            /** @description Mandatory administrator reason recorded exactly as written; empty reasons are rejected. */
+            reason: string;
+            /** @description Optional reference to the original consumption entry for refunds. */
+            reference_id?: string;
         };
     };
     responses: {
@@ -1418,6 +1454,48 @@ export interface operations {
             400: components["responses"]["ValidationFailed"];
             401: components["responses"]["AuthenticationRequired"];
             403: components["responses"]["AccessForbidden"];
+            default: components["responses"]["Problem"];
+        };
+    };
+    createAdminCreditAdjustment: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                userId: components["parameters"]["UserId"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["admin-credit-adjustment-request"];
+            };
+        };
+        responses: {
+            /** @description Created immutable ledger entry */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["admin-credit-ledger-entry"];
+                };
+            };
+            400: components["responses"]["ValidationFailed"];
+            401: components["responses"]["AuthenticationRequired"];
+            403: components["responses"]["AccessForbidden"];
+            404: components["responses"]["NotFound"];
+            /** @description Idempotency or balance conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["problem"];
+                };
+            };
             default: components["responses"]["Problem"];
         };
     };

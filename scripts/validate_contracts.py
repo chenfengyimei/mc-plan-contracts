@@ -159,8 +159,8 @@ PAT_GRANTABLE_SCOPES = {
 
 def validate_core_prerelease(document: dict[str, Any]) -> None:
     version = document.get("info", {}).get("version")
-    if version != "0.1.0-alpha.9":
-        raise ValueError("core.yaml must lock the ADR-0018 admin console read-only slice as 0.1.0-alpha.9")
+    if version != "0.1.0-alpha.10":
+        raise ValueError("core.yaml must lock the ADR-0018 admin first-write batch as 0.1.0-alpha.10")
 
     operation = document.get("paths", {}).get("/v1/me", {}).get("get", {})
     if operation.get("operationId") != "getCurrentUser":
@@ -775,6 +775,73 @@ def validate_core_prerelease(document: dict[str, Any]) -> None:
     if audit_user_schema.get("format") != "uuid":
         raise ValueError("core.yaml listAdminAuditRecords user_id filter must be a uuid")
 
+    # --- ADR-0018 follow-up first admin write batch (0.1.0-alpha.10) ------
+    write_scope = "admin:write"
+    if write_scope not in admin_user_flow_scopes:
+        raise ValueError("core.yaml userOAuth must declare the admin:write scope")
+    if write_scope in admin_service_flow_scopes:
+        raise ValueError("core.yaml serviceOAuth must never declare admin:write")
+    if write_scope in PAT_GRANTABLE_SCOPES:
+        raise ValueError("admin:write must never be personal-access-token grantable")
+    if write_scope in app_scopes:
+        raise ValueError("admin:write must never be ordinary developer-app delegation")
+
+    adjustment = operations["createAdminCreditAdjustment"]
+    if adjustment.get("x-mc-plan-stability") != "prerelease":
+        raise ValueError("core.yaml createAdminCreditAdjustment must be marked prerelease")
+    if adjustment.get("security") != [{"userOAuth": [write_scope]}]:
+        raise ValueError("core.yaml createAdminCreditAdjustment must require exactly admin:write on userOAuth")
+    if not any(
+        parameter.get("$ref") == "#/components/parameters/IdempotencyKey"
+        for parameter in adjustment.get("parameters", [])
+    ):
+        raise ValueError("core.yaml createAdminCreditAdjustment must require the Idempotency-Key parameter")
+    if (
+        adjustment.get("requestBody", {}).get("content", {}).get("application/json", {}).get("schema", {}).get("$ref")
+        != "../schemas/core/admin-credit-adjustment-request.json"
+    ):
+        raise ValueError("core.yaml createAdminCreditAdjustment must use the locked request schema")
+    if (
+        adjustment.get("responses", {}).get("201", {}).get("content", {}).get("application/json", {}).get("schema", {}).get("$ref")
+        != "../schemas/core/admin-credit-ledger-entry.json"
+    ):
+        raise ValueError("core.yaml createAdminCreditAdjustment 201 must return AdminCreditLedgerEntry")
+    for status, ref in (
+        ("400", "#/components/responses/ValidationFailed"),
+        ("401", "#/components/responses/AuthenticationRequired"),
+        ("403", "#/components/responses/AccessForbidden"),
+        ("404", "#/components/responses/NotFound"),
+    ):
+        if adjustment.get("responses", {}).get(status, {}).get("$ref") != ref:
+            raise ValueError(f"core.yaml createAdminCreditAdjustment must keep the locked {status} problem")
+    conflict_codes = {
+        example.get("value", {}).get("code")
+        for example in adjustment.get("responses", {})
+        .get("409", {})
+        .get("content", {})
+        .get("application/problem+json", {})
+        .get("examples", {})
+        .values()
+    }
+    if conflict_codes != {"IDEMPOTENCY_KEY_CONFLICT", "CREDIT_ADJUSTMENT_CONFLICT"}:
+        raise ValueError("core.yaml createAdminCreditAdjustment 409 must carry exactly the idempotency and balance conflict codes")
+
+    adjustment_request = json.loads((ROOT / "schemas/core/admin-credit-adjustment-request.json").read_text(encoding="utf-8"))
+    adjustment_props = adjustment_request.get("properties", {})
+    if set(adjustment_props) != {"kind", "amount", "reason", "reference_id"}:
+        raise ValueError("AdminCreditAdjustmentRequest exposes unexpected fields")
+    if adjustment_props.get("kind", {}).get("enum") != ["grant", "refund", "adjustment"]:
+        raise ValueError("AdminCreditAdjustmentRequest kind enum drift")
+    if adjustment_props.get("amount", {}).get("not") != {"const": 0}:
+        raise ValueError("AdminCreditAdjustmentRequest amount must exclude zero")
+    adjustment_reason = adjustment_props.get("reason", {})
+    if (adjustment_reason.get("minLength"), adjustment_reason.get("maxLength")) != (1, 512):
+        raise ValueError("AdminCreditAdjustmentRequest reason must stay 1..512")
+    if adjustment_request.get("additionalProperties") is not False or set(
+        adjustment_request.get("required", [])
+    ) != {"kind", "amount", "reason"}:
+        raise ValueError("AdminCreditAdjustmentRequest must stay field-closed with mandatory kind/amount/reason")
+
     admin_summary = json.loads((ROOT / "schemas/core/admin-user-summary.json").read_text(encoding="utf-8"))
     if set(admin_summary.get("properties", {})) != {"user_id", "display_name", "status", "role", "created_at"}:
         raise ValueError("AdminUserSummary exposes unexpected fields")
@@ -961,6 +1028,13 @@ def validate_core_prerelease(document: dict[str, Any]) -> None:
     ):
         raise ValueError(
             "docs/compatibility.md must classify Core 0.1.0-alpha.9 as an admin read-only query addition"
+        )
+    if (
+        "Core `0.1.0-alpha.10`" not in compatibility
+        or "预发布兼容新增（管理员首批写操作）" not in compatibility
+    ):
+        raise ValueError(
+            "docs/compatibility.md must classify Core 0.1.0-alpha.10 as the first admin write batch addition"
         )
 
 

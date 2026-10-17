@@ -2,20 +2,20 @@
  * Explicit supported-operation manifest for the Core SDK.
  *
  * The SDK only exposes operations whose contract semantics are locked in
- * `openapi/core.yaml` at 0.1.0-alpha.9 AND whose producer has passed
+ * `openapi/core.yaml` at 0.1.0-alpha.10 AND whose producer has passed
  * contract, HTTP E2E and real-PostgreSQL integration acceptance. The first
  * twelve operations were producer-verified by MCP-F1-CORE-005, the two
  * consumer-pull event operations by MCP-F1-CORE-008, the alpha.6 public
  * profile operations (getPublicUser, updateCurrentUser) by MCP-F1-CORE-009
  * and the alpha.7 deactivation operation (deactivateCurrentUser) by
  * MCP-F1-CORE-010. The six alpha.9 admin console read-only operations
- * (ADR-0018) are producer-verified by MCP-F4-CORE-001, whose final tree (see
- * SUPPORTED_PRODUCER_COMMIT) carried the admin query producer, the apps/admin
- * web app and the Ops real-stack administrator acceptance.
+ * (ADR-0018) are producer-verified by MCP-F4-CORE-001. The alpha.10 admin
+ * write operation (createAdminCreditAdjustment, owner first write batch) is
+ * deliberately NOT exposed until its producer evidence exists.
  */
 
 /** Contract prerelease version the generated types and transport are built from. */
-export const SUPPORTED_CONTRACT_VERSION = '0.1.0-alpha.9' as const;
+export const SUPPORTED_CONTRACT_VERSION = '0.1.0-alpha.10' as const;
 
 /** Contracts commit that locked the 0.1.0-alpha.9 surface (verify against docs/compatibility.md). */
 export const SUPPORTED_CONTRACT_LOCK_COMMIT = '8f917bda76eaccd705a73fd35fe9a23a3903ad73' as const;
@@ -30,14 +30,14 @@ export const SUPPORTED_PRODUCER_COMMIT = '06de705698f126a8eb462b828c7aaad16e992c
 
 /**
  * sha256 of every contract file consumed by the type generation, relative to
- * the mc-plan-contracts repository root. Mirrors the 0.1.0-alpha.9 lock
- * manifest (the eleven admin field-closed schemas are generation inputs for
- * the exposed admin operations and are pinned here); tests recompute these
- * at run time so any contract edit that is not regenerated fails
+ * the mc-plan-contracts repository root. Mirrors the 0.1.0-alpha.10 lock
+ * manifest (the admin field-closed schemas plus the alpha.10 adjustment
+ * request schema are generation inputs and are pinned here); tests recompute
+ * these at run time so any contract edit that is not regenerated fails
  * `generate:check` and `test`.
  */
 export const SUPPORTED_CONTRACT_FILES = {
-  'openapi/core.yaml': 'fa19cd367b30823f70237b0dbc5c084bbe28c255ac82a4c8a0d2d000fe7f10bd',
+  'openapi/core.yaml': '1a4cd42261dda45ad75b3829a6fdf8183943253d80f98aea4de348e63c02634a',
   'schemas/common/actor.json': 'f1b371a741eb374f7bf8364398669a42a3b5e0031679af532320a10b17a04432',
   'schemas/common/problem.json': '80d6abfca67ccac9e22d83542134755c6126cae2696afbaa4c85efaceec4ba11',
   'schemas/common/event-envelope.json':
@@ -80,6 +80,8 @@ export const SUPPORTED_CONTRACT_FILES = {
     'c30de8027311fe5ec46cdc89d4ebe37323610866e2b85f4b476fed34c77d8673',
   'schemas/core/admin-outbox-record.json':
     'f76475bcd975a08e6e0b4bad5636cde824bdbd0bfb3a99f9288fa45d0c60f16e',
+  'schemas/core/admin-credit-adjustment-request.json':
+    'f481d19f8f0ec8cd2db2c644b734efbe8c54daf97961c799f46287fab213ee78',
 } as const;
 
 export type SupportedContractFile = keyof typeof SUPPORTED_CONTRACT_FILES;

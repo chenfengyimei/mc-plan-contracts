@@ -45,23 +45,26 @@ describe('supported contract manifest', () => {
       'listAdminOutboxRecords',
     ]);
     expect(SUPPORTED_OPERATIONS).not.toContain('someFutureOperation');
-    // Admin write operations stay unexposed until separately contracted and
-    // producer-verified (Q-010 owner-gated).
+    // Admin write operations stay unexposed until separately producer-verified
+    // (owner 2026-10-17 first batch: createAdminCreditAdjustment awaits the
+    // future producer slice; later batches are owner-gated).
     for (const unexposed of [
       'createAdminCreditAdjustment',
-      'adminDeactivateUser',
-      'refundCredits',
+      'revokeAdminPersonalAccessToken',
+      'revokeAdminDeveloperApp',
+      'setAdminUserStatus',
     ]) {
       expect(SUPPORTED_OPERATIONS).not.toContain(unexposed);
     }
-    expect(SUPPORTED_CONTRACT_VERSION).toBe('0.1.0-alpha.9');
+    expect(SUPPORTED_CONTRACT_VERSION).toBe('0.1.0-alpha.10');
     expect(SUPPORTED_CONTRACT_LOCK_COMMIT).toBe('8f917bda76eaccd705a73fd35fe9a23a3903ad73');
     // Producer evidence for the seventeen business operations comes from the
     // MCP-F1-CORE-005/008/009/010 slices; the six admin read-only operations
     // come from MCP-F4-CORE-001 whose final tree re-ran the producer gates
-    // plus the Ops real-stack administrator acceptance.
+    // plus the Ops real-stack administrator acceptance. The alpha.10 write
+    // face has NO producer evidence yet and stays unexposed.
     expect(SUPPORTED_PRODUCER_COMMIT).toBe('06de705698f126a8eb462b828c7aaad16e992cbf');
-    expect(Object.keys(SUPPORTED_CONTRACT_FILES)).toHaveLength(23);
+    expect(Object.keys(SUPPORTED_CONTRACT_FILES)).toHaveLength(24);
   });
 
   it('matches the sha256 of every contract file consumed by generation', async () => {

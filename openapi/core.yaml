@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: MC Plan Core API
-  version: 0.1.0-alpha.9
+  version: 0.1.0-alpha.10
   description: >-
     Public business identity, profile, developer application, personal access
     token, entitlement, and credit surface. Keycloak remains the credential and
@@ -909,6 +909,77 @@ paths:
           $ref: "#/components/responses/AccessForbidden"
         default:
           $ref: "#/components/responses/Problem"
+  /v1/admin/users/{userId}/credit-adjustments:
+    parameters:
+      - $ref: "#/components/parameters/UserId"
+    post:
+      tags: [Admin]
+      operationId: createAdminCreditAdjustment
+      summary: Record a manual credit adjustment or refund for one user
+      description: >-
+        ADR-0018 follow-up first write batch, owner decision 2026-10-17:
+        manual credit adjustments and refunds only. Requires a
+        realm-designated administrator OIDC user token carrying the new
+        admin:write scope plus the ADMIN business role and an ACTIVE account;
+        personal access tokens, developer-app delegation and service tokens
+        can never obtain admin:write. The command is transactional with the
+        immutable credit ledger and carries a mandatory administrator reason
+        (1..512) recorded exactly as written plus the actor identity in the
+        same transaction; the response is the created AdminCreditLedgerEntry.
+        Kind/symbol consistency is enforced (grant and refund amounts must be
+        positive, adjustment any non-zero integer); a command that would
+        drive the balance negative is rejected 409 CREDIT_ADJUSTMENT_CONFLICT.
+        Strictly bounded to the owner-approved first batch: no other admin
+        write operations exist in this prerelease.
+      x-mc-plan-stability: prerelease
+      security:
+        - userOAuth: [admin:write]
+      parameters:
+        - $ref: "#/components/parameters/IdempotencyKey"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: ../schemas/core/admin-credit-adjustment-request.json
+      responses:
+        "201":
+          description: Created immutable ledger entry
+          content:
+            application/json:
+              schema:
+                $ref: ../schemas/core/admin-credit-ledger-entry.json
+        "400":
+          $ref: "#/components/responses/ValidationFailed"
+        "401":
+          $ref: "#/components/responses/AuthenticationRequired"
+        "403":
+          $ref: "#/components/responses/AccessForbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Idempotency or balance conflict
+          content:
+            application/problem+json:
+              schema:
+                $ref: ../schemas/common/problem.json
+              examples:
+                idempotencyKeyConflict:
+                  value:
+                    type: /problems/idempotency-key-conflict
+                    title: Idempotency key conflict
+                    status: 409
+                    code: IDEMPOTENCY_KEY_CONFLICT
+                    trace_id: 01HZZZZZZZZZZZZZZZZZZZZZZZ
+                balanceConflict:
+                  value:
+                    type: /problems/credit-adjustment-conflict
+                    title: Credit adjustment conflict
+                    status: 409
+                    code: CREDIT_ADJUSTMENT_CONFLICT
+                    trace_id: 01HZZZZZZZZZZZZZZZZZZZZZZZ
+        default:
+          $ref: "#/components/responses/Problem"
 components:
   parameters:
     UserId:
@@ -1163,6 +1234,7 @@ components:
             pat:read: Read the current user's personal access token metadata
             pat:manage: Create or revoke the current user's personal access tokens
             admin:read: Read MC Plan administrative query surfaces (realm-designated administrators only, ADR-0018)
+            admin:write: Record manual credit adjustments and refunds (realm-designated administrators only, ADR-0018 follow-up first write batch, owner decision 2026-10-17)
     personalAccessToken:
       type: http
       scheme: bearer
